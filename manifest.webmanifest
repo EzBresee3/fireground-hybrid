@@ -1,0 +1,18 @@
+{
+  "id": "/fireground-hybrid/",
+  "name": "Fireground Hybrid",
+  "short_name": "Fireground",
+  "description": "12-week hybrid strength and conditioning tracker for firefighters.",
+  "start_url": "/fireground-hybrid/",
+  "scope": "/fireground-hybrid/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#B8251B",
+  "background_color": "#E9ECEB",
+  "lang": "en",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
