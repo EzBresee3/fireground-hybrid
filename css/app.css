@@ -140,3 +140,4 @@ nav.tabs button[aria-current="page"]{color:var(--ink);border-top-color:var(--red
 .backup-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .backup-actions .btn{font-size:16px;padding:12px 10px}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+input[type=password]{width:100%;border:1.5px solid var(--line);background:var(--paper);border-radius:8px;padding:9px 10px;font-size:16px}

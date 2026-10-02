@@ -1,5 +1,6 @@
 import { PH, PH_NAME, PH_NOTE, WARM, PLAN, BY_ID, REQUIRED, VNAME } from './program.js';
 import { loadAll, set, setMany, requestPersist, buildExport, validateImport } from './storage.js';
+import { initSync, markDirty, pushNow, connect, useRemote, keepLocal, disconnect, status as syncStatus } from './sync.js';
 
 /* ---------------- State and storage ---------------- */
 const state = {logs:{}, settings:{version:'gym'}, meta:{}, tab:'today', openId:null};
@@ -7,10 +8,16 @@ let lt=null;
 function saveLocal(){ clearTimeout(lt); lt=setTimeout(flush,250); }
 async function flush(){
   clearTimeout(lt); lt=null;
-  try{ await setMany([['logs', state.logs], ['settings', state.settings]]); setSync('Saved on this device'); return true; }
+  try{ await setMany([['logs', state.logs], ['settings', state.settings]]); markDirty(); setSync(syncLabel()); return true; }
   catch(e){ setSync('Not saved: storage error'); return false; }
 }
 function setSync(t){ document.getElementById('sync').textContent=t; }
+function syncLabel(){
+  const st = syncStatus();
+  if(!st.connected) return 'Saved on this device';
+  if(st.lastError) return 'Saved on this device, sync failed';
+  return st.pending ? 'Saved on this device' : 'Saved and synced';
+}
 async function pushLog(id){ return flush(); }
 async function pushSettings(){ return flush(); }
 async function saveMeta(){ try{ await set('meta', state.meta); }catch(e){} }
@@ -177,12 +184,15 @@ document.getElementById('app').addEventListener('click', async e=>{
   const act = t.dataset.act; if(!act) return;
   if(act==='back'){ state.openId=null; render(); window.scrollTo(0,0); return; }
   if(act==='reset'){
-    if(!confirm('Erase every logged session and test result? This cannot be undone.')) return;
+    if(!confirm('Erase every logged session and test result? This cannot be undone.' + (syncStatus().connected ? '\n\nThe synced copy on GitHub is overwritten too (GitHub keeps older versions).' : ''))) return;
     state.logs = {}; await flush();
     render(); toast('All logged data erased'); return;
   }
   if(act==='export'){ exportData(); return; }
   if(act==='import'){ document.getElementById('import-file').click(); return; }
+  if(act==='gh-connect'){ connectGitHub(t); return; }
+  if(act==='gh-sync'){ markDirty(); const ok = await pushNow(); toast(ok ? 'Synced' : (syncStatus().lastError || 'Offline: it will sync when you are back online')); return; }
+  if(act==='gh-off'){ if(confirm('Turn off auto-sync on this device? The copy on GitHub stays where it is.')){ await disconnect(); render(); toast('Auto-sync is off'); } return; }
   if(!s) return;
   const log = logOf(s.id); log.updatedAt = Date.now();
   if(act==='done'){
@@ -207,15 +217,48 @@ const fmtLong = iso => { try{ return new Date(iso).toLocaleDateString(undefined,
 const daysSince = iso => (Date.now() - new Date(iso).getTime()) / 864e5;
 const doneCount = logs => Object.values(logs).filter(l=>l && l.done).length;
 
+const fmtStamp = iso => { try{ return new Date(iso).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return iso; } };
+const hasData = logs => Object.values(logs).some(l=>l && (l.done || l.skipped || l.rpe || l.notes || Object.keys(l.items||{}).length || Object.keys(l.fields||{}).length));
+const TOKEN_URL = 'https://github.com/settings/tokens/new?scopes=gist&description=Fireground%20Hybrid%20sync';
+
 function backupView(){
-  const last = state.meta.lastBackup, since = last || state.meta.firstUse;
-  const nag = Object.keys(state.logs).length > 0 && since && daysSince(since) > BACKUP_NAG_DAYS;
-  let h = `<h2>Backup</h2><div class="block">`;
-  if(nag) h += `<p class="reminder">${last ? `It's been ${Math.floor(daysSince(last))} days since your last backup.` : `You haven't backed up yet.`} Export a copy and keep it in Files or iCloud Drive.</p>`;
-  h += `<p style="margin:0">Last backup: <b>${last ? fmtLong(last) : 'never'}</b></p>`;
-  h += `<p class="small muted" style="margin:4px 0 0">Your log lives only on this device. Export a file now and then so a lost or reset phone doesn't take your twelve weeks with it.</p>`;
-  h += `<div class="backup-actions"><button class="btn primary" data-act="export">Export data</button><button class="btn ghost" data-act="import">Import data</button></div></div>`;
+  const st = syncStatus();
+  let h = `<h2>Backup and sync</h2><div class="block">`;
+  if(st.connected){
+    if(st.lastError) h += `<p class="reminder">Sync isn't working: ${esc(st.lastError)} Your data is still saved on this device. If the token expired, turn auto-sync off and connect again with a new one.</p>`;
+    h += `<p style="margin:0">Auto-sync to GitHub is <b>on</b>.</p>`;
+    h += `<p style="margin:2px 0 0">${st.pending && !st.lastError ? 'Waiting to sync. It uploads as soon as you are online.' : `Last synced: <b>${st.lastSyncedAt ? fmtStamp(st.lastSyncedAt) : 'not yet'}</b>`}</p>`;
+    h += `<p class="small muted" style="margin:4px 0 0">Every save is uploaded to a private gist on your GitHub account, and GitHub keeps every version. On a new phone, connect the same token to get it all back.</p>`;
+    h += `<div class="backup-actions"><button class="btn primary" data-act="gh-sync">Sync now</button>${st.gistUrl ? `<a class="btn ghost" style="text-align:center;text-decoration:none;color:inherit" href="${esc(st.gistUrl)}" target="_blank" rel="noopener">View on GitHub</a>` : ''}</div>`;
+    h += `<div class="actions" style="margin-top:6px"><button class="btn link" data-act="gh-off">Turn off auto-sync</button></div>`;
+  } else {
+    const last = state.meta.lastBackup, since = last || state.meta.firstUse;
+    const nag = hasData(state.logs) && since && daysSince(since) > BACKUP_NAG_DAYS;
+    if(nag) h += `<p class="reminder">${last ? `It's been ${Math.floor(daysSince(last))} days since your last backup.` : `You haven't backed up yet.`} Turn on auto-sync below, or export a copy and keep it in Files or iCloud Drive.</p>`;
+    h += `<h3>Auto-sync to GitHub</h3>`;
+    h += `<p class="small muted" style="margin:4px 0 8px">Uploads your log to a private gist after every save, so you never have to back up by hand.</p>`;
+    h += `<ol class="small" style="margin:0 0 10px;padding-left:20px"><li><a href="${TOKEN_URL}" target="_blank" rel="noopener" style="color:var(--red)">Create a GitHub token</a>. Only the <b>gist</b> box should be ticked. Set Expiration to <b>No expiration</b>, then tap <b>Generate token</b> and copy it.</li><li>Paste it here and tap Connect.</li></ol>`;
+    h += `<label class="f">GitHub token<input type="password" id="gh-token" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ghp_…"></label>`;
+    h += `<div class="actions" style="margin-top:10px"><button class="btn primary" data-act="gh-connect">Connect</button></div>`;
+    h += `<p style="margin:18px 0 0">Last manual backup: <b>${last ? fmtLong(last) : 'never'}</b></p>`;
+  }
+  h += `<div class="backup-actions"><button class="btn ghost" data-act="export">Export data</button><button class="btn ghost" data-act="import">Import data</button></div></div>`;
   return h;
+}
+
+async function connectGitHub(btn){
+  const input = document.getElementById('gh-token');
+  btn.disabled = true; btn.textContent = 'Connecting…';
+  const r = await connect(input ? input.value : '');
+  if(!r.ok){ btn.disabled = false; btn.textContent = 'Connect'; toast(r.error); return; }
+  if(!r.found){ toast('Auto-sync is on'); }
+  else if(JSON.stringify(r.remote.logs) === JSON.stringify(state.logs)){ await useRemote(); toast('Auto-sync is on'); }
+  else if(!hasData(state.logs) || confirm(`Found a synced copy${r.remote.exportedAt ? ' from '+fmtStamp(r.remote.exportedAt) : ''} with ${doneCount(r.remote.logs)} sessions done. This phone has ${doneCount(state.logs)}.\n\nOK: use the synced copy on this phone.\nCancel: keep this phone's data and replace the synced copy.`)){
+    state.logs = r.remote.logs; state.settings = Object.assign({version:'gym'}, r.remote.settings); state.openId = null;
+    try{ await setMany([['logs', state.logs], ['settings', state.settings]]); }catch(e){}
+    await useRemote(); toast('Restored from GitHub. Auto-sync is on');
+  } else { await keepLocal(); toast('Auto-sync is on'); }
+  render();
 }
 
 function localDate(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -321,13 +364,22 @@ function initSW(){
 }
 
 /* ---------------- Boot ---------------- */
-document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden' && lt) flush(); });
+document.addEventListener('visibilitychange', async ()=>{
+  if(document.visibilityState!=='hidden') return;
+  if(lt) await flush();
+  if(syncStatus().pending) pushNow({keepalive:true});
+});
 window.addEventListener('pagehide', ()=>{ if(lt) flush(); });
 
 (async function boot(){
   try{
     const d = await loadAll();
     state.logs = d.logs; state.settings = Object.assign(state.settings, d.settings); state.meta = d.meta;
+    await initSync({
+      getData: ()=>({logs:state.logs, settings:state.settings}),
+      onChange: ()=>{ setSync(syncLabel()); if(state.tab==='progress' && document.activeElement?.id!=='gh-token') render(); }
+    });
+    setSync(syncLabel());
   }catch(e){ setSync('Storage unavailable: changes will not be kept'); }
   render();
   requestPersist();
