@@ -11,13 +11,27 @@ It runs entirely on your phone. There are no accounts, no server, and it works i
 2. Tap **Share** (the square with the arrow), then **Add to Home Screen**, then **Add**.
 3. Open it from the home-screen icon once while you're online. After that it works fully offline.
 
-## Back up and restore
+## Auto-sync (recommended)
 
-Your log is stored only on this phone, in the app's own storage. If you delete the app or reset the phone, the log is gone unless you have a backup.
+Turn this on once and you never need to back up by hand. After every save, the app uploads your log to a **private gist** on your GitHub account. GitHub keeps every version, so you can always roll back.
 
-- **Back up:** Progress tab → **Backup** → **Export data**. Pick **Save to Files** and keep it somewhere like iCloud Drive. The file is named `fireground-hybrid-backup-YYYY-MM-DD.json`.
-- **Restore:** Progress tab → **Import data**, then pick a backup file. The app checks the file and asks before it replaces anything.
-- The Progress tab shows the date of your last backup, and a reminder if it's been more than 14 days.
+1. In the app, open **Progress → Backup and sync** and tap **Create a GitHub token**. This opens GitHub with only the **gist** permission ticked.
+2. Set **Expiration** to **No expiration**, tap **Generate token** and copy the token (it starts with `ghp_`).
+3. Back in the app, paste it and tap **Connect**. The header changes to **Saved and synced**.
+
+- **Offline:** changes wait and upload the next time you open the app with a connection.
+- **New phone:** install the app, paste the same token and tap Connect. Your log comes back automatically.
+- **Problem:** if the token is revoked or expires, the app says "sync failed" and keeps everything on the phone. Turn auto-sync off and connect again with a new token.
+- **Your gist:** it's named `fireground-hybrid.json`. Use **View on GitHub** to see it, or **Revisions** on GitHub to see older versions.
+- The token can only read and write your gists, nothing else on your account. It's stored only in the app on your phone and is never included in exported files.
+
+## Manual backup and restore
+
+Export and Import still work alongside auto-sync, or instead of it.
+
+- **Back up:** Progress tab → **Export data**. Pick **Save to Files** and keep it somewhere like iCloud Drive. The file is named `fireground-hybrid-backup-YYYY-MM-DD.json`.
+- **Restore:** Progress tab → **Import data**, then pick a backup file. The app checks the file and asks before it replaces anything. A gist's `fireground-hybrid.json` file imports too.
+- Without auto-sync, the Progress tab reminds you if your last backup is more than 14 days old.
 
 ## Updates
 
@@ -34,6 +48,7 @@ index.html             app shell
 css/app.css            styles (design tokens, light/dark)
 js/program.js          the 12-week plan (data only)
 js/storage.js          IndexedDB storage, backup validation
+js/sync.js             auto-sync to a private GitHub Gist
 js/app.js              views, logging, rest timer, wake lock, update banner
 sw.js                  service worker (cache-first app shell)
 manifest.webmanifest   install metadata
