@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fireground Hybrid: 12 weeks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E9ECEB; --surface:#F7F8F7; --ink:#1E2428; --steel:#5F6B71; --line:#C9D0D2;
+  --red:#B8251B; --red-ink:#FFFFFF; --trimY:#E3DC3C; --trimS:#B9C0C4; --hatch:#D3D8DA;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Barlow","Helvetica Neue",Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#151A1C; --surface:#1E2427; --ink:#E5E9EA; --steel:#9AA6AC; --line:#333D41;
+    --red:#E24B3C; --red-ink:#140706; --trimY:#D6D03A; --trimS:#8E979C; --hatch:#2B3337;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#151A1C; --surface:#1E2427; --ink:#E5E9EA; --steel:#9AA6AC; --line:#333D41;
+  --red:#E24B3C; --red-ink:#140706; --trimY:#D6D03A; --trimS:#8E979C; --hatch:#2B3337;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom,0px))}
+header.top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px}
+.brand{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.01em}
+.sync{font-size:13px;color:var(--steel)}
+h1{font-family:var(--display);font-weight:700;font-size:36px;line-height:1.02;margin:4px 0 10px}
+h2{font-family:var(--display);font-weight:600;font-size:24px;line-height:1.1;margin:28px 0 10px}
+h3{font-family:var(--display);font-weight:600;font-size:19px;margin:0}
+p{margin:0 0 10px}
+.muted{color:var(--steel)}
+.small{font-size:14px}
+.trim{height:15px;margin:6px -16px 16px;background:linear-gradient(to bottom,var(--trimY) 0 32%,var(--trimS) 32% 68%,var(--trimY) 68% 100%)}
+.trim.thin{height:9px;margin:0 0 0;border-radius:2px}
+.where{font-size:15px;color:var(--steel);margin:0}
+.meta{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:15px;color:var(--steel);margin-bottom:12px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--ink);border-radius:10px;overflow:hidden;margin:6px 0 6px}
+.seg button{border:0;background:transparent;padding:10px 4px;font-weight:600;font-size:15px;cursor:pointer}
+.seg button+button{border-left:2px solid var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.hint{font-size:13px;color:var(--steel);margin-bottom:14px}
+.block{background:var(--surface);border-radius:12px;padding:14px;margin:12px 0}
+.items{list-style:none;margin:0;padding:0}
+.item{padding:14px 0;border-top:1px solid var(--line);display:grid;grid-template-columns:34px 1fr;gap:4px 10px}
+.item:first-child{border-top:0;padding-top:4px}
+.lab{font-family:var(--display);font-weight:700;font-size:18px;color:var(--red);line-height:1.3}
+.nm{font-weight:600}
+.rx{font-family:var(--display);font-weight:600;font-size:19px;line-height:1.2}
+.note{font-size:14px;color:var(--steel)}
+.inputs{grid-column:2;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+label.f{display:flex;flex-direction:column;font-size:13px;color:var(--steel);gap:3px}
+input[type=text],input[type=number],textarea{width:100%;border:1.5px solid var(--line);background:var(--paper);border-radius:8px;padding:9px 10px;font-size:16px}
+textarea{min-height:70px;resize:vertical}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rpe{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin:6px 0 4px}
+.rpe button{border:1.5px solid var(--line);background:var(--paper);border-radius:6px;padding:9px 0;font-weight:600;cursor:pointer;font-size:15px}
+.rpe button[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:var(--red-ink)}
+.actions{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.btn{border:0;border-radius:10px;padding:14px 16px;font-weight:600;font-size:17px;cursor:pointer}
+.btn.primary{background:var(--red);color:var(--red-ink)}
+.btn.ghost{background:transparent;border:2px solid var(--line)}
+.btn.link{background:none;padding:6px 0;text-align:left;color:var(--steel);text-decoration:underline;font-size:15px}
+.done-note{display:flex;align-items:center;gap:10px;margin:10px 0}
+.done-note .trim{width:46px;margin:0;flex:none}
+/* plan */
+.week{padding:12px 0;border-top:1px solid var(--line)}
+.week.now h3{color:var(--red)}
+.wk-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
+.tags{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.tag{position:relative;border:2px solid var(--line);background:var(--surface);border-radius:7px;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:6px;cursor:pointer;overflow:hidden}
+.tag::before{content:"";position:absolute;top:6px;left:50%;width:9px;height:9px;margin-left:-4.5px;border-radius:50%;background:var(--paper);border:1.5px solid var(--line)}
+.tag b{font-family:var(--display);font-size:20px;line-height:1}
+.tag small{font-size:11px;color:var(--steel)}
+.tag.opt{border-style:dashed}
+.tag.done{border-color:var(--trimY);background:linear-gradient(to bottom,transparent 0 58%,var(--trimY) 58% 66%,var(--trimS) 66% 74%,var(--trimY) 74% 82%,transparent 82%) ,var(--surface)}
+.tag.done b{color:var(--ink)}
+.tag.done small{visibility:hidden}
+.tag.skip{background:repeating-linear-gradient(135deg,var(--hatch) 0 6px,transparent 6px 12px),var(--surface)}
+.tag.next{border-color:var(--red)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:14px;color:var(--steel);margin:6px 0 4px}
+/* progress */
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:9px 6px;border-top:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--steel);font-size:13px}
+td.num{font-family:var(--display);font-weight:600;font-size:18px}
+.bars{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;height:120px;margin-top:6px}
+.bar{background:var(--ink);border-radius:3px 3px 0 0;min-height:2px}
+.bar.empty{background:var(--line)}
+.bar-x{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;font-size:11px;color:var(--steel);text-align:center;margin-top:4px}
+.count{font-family:var(--display);font-weight:700;font-size:44px;line-height:1}
+/* nav */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav.tabs .in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
+nav.tabs button{background:none;border:0;padding:14px 0 12px;font-family:var(--display);font-weight:600;font-size:18px;color:var(--steel);cursor:pointer;border-top:3px solid transparent}
+nav.tabs button[aria-current="page"]{color:var(--ink);border-top-color:var(--red)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-size:15px;max-width:90vw;z-index:9;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion: reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><span class="brand">Fireground Hybrid</span><span class="sync" id="sync">Saved on this device</span></header>
+  <main id="app"></main>
+</div>
+<nav class="tabs" aria-label="Sections"><div class="in">
+  <button data-tab="today">Today</button>
+  <button data-tab="plan">Plan</button>
+  <button data-tab="progress">Progress</button>
+</div></nav>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ---------------- Program ---------------- */
+const PH = w => (w===4||w===8) ? 'deload' : w===12 ? 'test' : w<=3 ? 'base' : w<=7 ? 'build' : 'peak';
+const PH_NAME = {base:'Base block', build:'Build block', peak:'Peak block', deload:'Deload week', test:'Test week'};
+const PH_NOTE = {
+  base:'Groove technique and build your aerobic engine. Finish lifts with about 3 reps left in the tank.',
+  build:'Heavier loads and harder intervals. Finish lifts with about 2 reps left in the tank.',
+  peak:'Heaviest lifts, fastest intervals and the most fireground-specific work of the program.',
+  deload:'Back off on purpose. Same movements, less volume, so your body absorbs the last three weeks.',
+  test:'A light week to freshen up, then retest everything from week 1.'
+};
+const MAIN = {1:'3 × 10 @ RPE 7',2:'3 × 10, add a little load',3:'4 × 8 @ RPE 7–8',4:'2 × 8 light (RPE 6)',5:'4 × 6 @ RPE 8',6:'4 × 5, add load',7:'5 × 5 @ RPE 8',8:'2 × 5 light (RPE 6)',9:'4 × 4 @ RPE 8',10:'4 × 3 @ RPE 8–9',11:'5 × 3, heaviest of the program',12:'3 × 3 crisp, about 80% effort'};
+const MAINBW = {1:'3 × 12',2:'3 × 15',3:'4 × 12, 3-second lowering',4:'2 × 10 easy',5:'4 × 10, 3-sec lowering + pause',6:'4 × 12, 3-sec lowering + pause',7:'5 × 10, harder variation',8:'2 × 10 easy',9:'4 × 8, harder variation, explode up',10:'4 × max quality reps (stop 2 short)',11:'5 × 8, harder variation',12:'3 × 6 crisp'};
+const ACC = {base:'3 × 12', build:'3 × 10', peak:'3 × 8', deload:'2 × 10', test:'2 × 8'};
+const WARM = '4 min: 2 min easy bike, jump rope or jumping jacks, then 5 inchworms, 10 bodyweight squats and 5 lunges per side with an overhead reach.';
+const it = (lab,name,rx,note='',log=true,main=false) => ({lab,name,rx,note,log,main});
+const cardioFields = [{k:'duration',l:'Time (min)',t:'number'},{k:'distance',l:'Distance',t:'text'},{k:'hr',l:'Avg heart rate',t:'number'},{k:'watts',l:'Avg watts / RPM',t:'text'}];
+
+function strengthA(w){
+  const p=PH(w), m=MAIN[w], mb=MAINBW[w], a=ACC[p], pw = p==='peak', light = p==='deload'||p==='test';
+  const C = light ? '2 × ' : '3 × ';
+  return {kind:'strength', code:'S', title:'Strength A: legs and push', minutes: light?20:28,
+    focus:'Squat pattern, pressing and single-leg strength for climbing stairs and ladders with a load.',
+    how:'Superset A1 with A2, resting 60–90 s after each pair. Same with B1 and B2. Finish with C.',
+    versions:{
+      bw:[pw&&it('P','Squat jumps','3 × 5','Land soft, reset each rep',false), it('A1','Bulgarian split squat',mb+' /leg','Rear foot on a chair or couch',true,true), it('A2','Push-ups',mb,'Feet on a chair from week 7',true,true), it('B1','Reverse lunge',a+' /leg'), it('B2','Pike push-up',a), it('C','Hollow hold',C+'30 s','',false)].filter(Boolean),
+      db:[pw&&it('P','Squat jumps','3 × 5','Land soft, reset each rep',false), it('A1','Goblet squat',m,'',true,true), it('A2','Dumbbell floor press',m,'Use a bench if you have one',true,true), it('B1','Dumbbell step-up',a+' /leg','Knee-height step'), it('B2','Half-kneeling dumbbell press',a+' /arm'), it('C','Suitcase carry',C+'30 m /side','Stay tall, no leaning')].filter(Boolean),
+      gym:[pw&&it('P','Box jump','3 × 3','Step down, full reset each rep',false), it('A1','Back squat',m,'',true,true), it('A2','Bench press',m,'',true,true), it('B1','Dumbbell step-up',a+' /leg','Knee-height box'), it('B2','Half-kneeling landmine press',a+' /arm'), it('C','Pallof press',C+'10 /side','')].filter(Boolean)
+    }};
+}
+function strengthB(w){
+  const p=PH(w), m=MAIN[w], mb=MAINBW[w], a=ACC[p], pw = p==='peak', light = p==='deload'||p==='test';
+  const C = light ? '2 × ' : '3 × ';
+  return {kind:'strength', code:'S', title:'Strength B: pull, hinge and carry', minutes: light?20:28,
+    focus:'Deadlift pattern, pulling and grip for hose pulls, victim drags and carrying tools.',
+    how:'Superset A1 with A2, resting 60–90 s after each pair. Same with B1 and B2. Finish with C.',
+    versions:{
+      bw:[pw&&it('P','Broad jumps','3 × 3','Stick each landing',false), it('A1','Single-leg hip thrust',mb+' /leg','Shoulders on a couch or bench',true,true), it('A2','Pull-ups or table rows',mb,'Rows under a sturdy table if no bar',true,true), it('B1','Single-leg RDL',a+' /leg','Slow, hips square'), it('B2','Bear crawl',(light?'2':'4')+' × 20 m','Knees an inch off the floor',false), it('C','Side plank',C+'30 s /side','',false)].filter(Boolean),
+      db:[pw&&it('P','Kettlebell swing','3 × 8 hard','Snap the hips, float the bell'), it('A1','Dumbbell Romanian deadlift',m,'',true,true), it('A2','One-arm dumbbell row',m+' /arm','',true,true), it('B1','Single-leg dumbbell RDL',a+' /leg'), it('B2','Farmer carry',(light?'2':'4')+' × 40 m','Heavy, fast, tall'), it('C','Plank drag-through',C+'10 /side')].filter(Boolean),
+      gym:[pw&&it('P','Kettlebell swing','3 × 8 hard','Snap the hips, float the bell'), it('A1','Trap bar deadlift',m,'',true,true), it('A2','Pull-ups',m,'Band or lat pulldown if needed; add weight once 10 reps is easy',true,true), it('B1','Chest-supported row',a), it('B2','Farmer carry',(light?'2':'4')+' × 40 m','Heavy, fast, tall'), it('C','Dead hang',C+'max hold (cap 60 s)','Grip for tools and hose')].filter(Boolean)
+    }};
+}
+function bike(w){
+  const main = {1:'8 × 30 s hard (RPE 8), 90 s easy between',2:'10 × 30 s hard, 90 s easy between',3:'10 × 40 s hard, 80 s easy between',4:'20 min steady zone 2, add 4 × 15 s fast spins',5:'5 × 2 min hard (RPE 8), 1 min easy between',6:'6 × 2 min hard, 1 min easy between',7:'4 × 3 min hard, 90 s easy between',8:'20 min steady zone 2, add 4 × 15 s fast spins',9:'2 sets of 8 × 20 s all-out, 40 s easy; 2 min easy between sets',10:'2 sets of 10 × 20 s all-out, 40 s easy; 2 min easy between sets',11:'6 × 1 min hard, 1 min easy, then 4 × 20 s all-out, 40 s easy',12:'15 min easy, add 4 × 30 s openers at race pace'}[w];
+  return {kind:'cardio', code:'B', title: PH(w)==='deload' ? 'Bike: easy aerobic' : 'Bike intervals', minutes:26,
+    focus:'Your stationary bike at home is perfect for this. Builds the engine for repeated hard efforts on scene with low impact on your joints.',
+    steps:[it('1','Warm-up','5 min easy, build to moderate','',false), it('2','Main set',main,'',false), it('3','Cool-down','3–5 min easy spin','',false)],
+    fields:cardioFields};
+}
+function run(w){
+  const main = {1:'20 min easy, conversational pace',2:'22 min easy',3:'25 min easy, last 3 min a little faster',4:'20 min easy',5:'3 × 5 min comfortably hard (RPE 7), 1 min walk between',6:'3 × 6 min comfortably hard, 1 min walk between',7:'2 × 10 min comfortably hard, 2 min walk between',8:'20 min easy',9:'6 × 90 s hard (RPE 8–9), 90 s easy jog between',10:'8 × 90 s hard, 90 s easy jog between',11:'5 × 2 min hard, 2 min easy jog between',12:'15 min easy, add 4 × 20 s strides'}[w];
+  const easy = ['base','deload'].includes(PH(w)) || w===12;
+  return {kind:'cardio', code:'R', title: easy ? 'Run: aerobic base' : 'Run: '+(PH(w)==='build'?'tempo':'intervals'), minutes:25,
+    focus:'Walk breaks are fine on easy days. No running today? Do the same structure on the bike, a rower or a stair climber.',
+    steps: easy ? [it('1','Run',main,'You should be able to talk in full sentences',false)] : [it('1','Warm-up','5 min easy jog','',false), it('2','Main set',main,'',false), it('3','Cool-down','3 min easy jog or walk','',false)],
+    fields:cardioFields};
+}
+function hybrid(w){
+  const p = PH(w);
+  if (w===1 || w===12) return {kind:'hybrid', code:'F', title: w===1 ? 'Fireground benchmark' : 'Fireground benchmark retest', minutes:25,
+    focus:'4 rounds for time. Note which version you use; repeat the same one in week 12 so the times compare.',
+    how:'Warm up well, then go. Steady first round, empty the tank on the last.',
+    versions:{
+      bw:[it('1','Step-ups or stair climbs','20 total','Bench, stairs or a sturdy chair',false), it('2','Bear crawl','20 m','',false), it('3','Burpees','10','',false), it('4','Air squats','20','',false)],
+      db:[it('1','Dumbbell step-ups','20 total','',false), it('2','Farmer carry','40 m','Heavy',false), it('3','Burpees','10','',false), it('4','Kettlebell swings','15','',false)],
+      gym:[it('1','Row','250 m','',false), it('2','Sled push','20 m','Or 40 m heavy farmer carry',false), it('3','Burpees','10','',false), it('4','Kettlebell swings','15','',false)]
+    },
+    fields:[{k:'result',l:'Total time (mm:ss)',t:'text'},{k:'hr',l:'Avg heart rate',t:'number'}]};
+  if (p==='base' || p==='deload') {
+    const dl = p==='deload';
+    return {kind:'hybrid', code:'F', title: dl ? 'Fireground circuit: easy' : 'Fireground circuit', minutes: dl?20:25,
+      focus: dl ? '15 min continuous at an easy, nose-breathing pace, then 5 min of mobility.' : (w===2?'18':'20')+'-minute AMRAP at a steady pace (RPE 7). Move the whole time and count rounds.',
+      how:'Cycle through the list in order. Smooth beats fast.',
+      versions:{
+        bw:[it('1','Burpees','10','',false), it('2','Step-ups or stair climbs','20 total','',false), it('3','Bear crawl','20 m','',false), it('4','Air squats','15','',false)],
+        db:[it('1','Dumbbell thrusters','10','',false), it('2','Kettlebell swings','12','',false), it('3','Farmer carry','40 m','',false), it('4','Dumbbell step-ups','10 /leg','',false)],
+        gym:[it('1','Row','200 m','',false), it('2','Sled push','20 m','',false), it('3','Wall balls','10','',false), it('4','Box step-ups','10 /leg','',false)]
+      },
+      fields:[{k:'result',l: dl ? 'How it felt' : 'Rounds completed',t:'text'},{k:'hr',l:'Avg heart rate',t:'number'}]};
+  }
+  if (p==='build') return {kind:'hybrid', code:'F', title:'Fireground circuit: for time', minutes:27,
+    focus:(w===7?'6':'5')+' rounds for time with 60 s rest between rounds. Push the pace (RPE 8).',
+    how:'Go hard but keep every rep clean. Log the total time.',
+    versions:{
+      bw:[it('1','Burpees','8','',false), it('2','Jumping lunges','20 total','',false), it('3','Bear crawl','20 m','',false), it('4','Push-ups','10','',false)],
+      db:[it('1','Kettlebell swings','12','',false), it('2','Dumbbell push press','8','',false), it('3','Front-rack carry','30 m','',false), it('4','Dumbbell reverse lunges','10 total','',false)],
+      gym:[it('1','Assault bike','12 cal','Or 15 cal row',false), it('2','Sled drag, walking backward','20 m','Victim drag',false), it('3','Dumbbell push press','8','',false), it('4','Farmer carry','30 m','',false)]
+    },
+    fields:[{k:'result',l:'Total time (mm:ss)',t:'text'},{k:'hr',l:'Avg heart rate',t:'number'}]};
+  const rounds = w===9 ? 5 : 6;
+  return {kind:'hybrid', code:'F', title:'Fireground intervals', minutes:26,
+    focus: rounds+' rounds of 3 min on, 1 min off. Each round is 1 minute at each station, done in order.',
+    how:'On shift, if your department allows it, do this in turnout coat and SCBA pack once in this block and cut it to 4 rounds.',
+    versions:{
+      bw:[it('1','Stair climbs or step-ups','1 min','Stair climb',false), it('2','Bear crawl','1 min','Search crawl',false), it('3','Burpees','1 min','',false)],
+      db:[it('1','Weighted step-ups','1 min','Stair climb with a load',false), it('2','Farmer carry','1 min','Equipment carry',false), it('3','Kettlebell swings','1 min','',false)],
+      gym:[it('1','Stair climber','1 min','Or weighted step-ups',false), it('2','Sled drag or rope sled pull','1 min','Victim drag, hose pull',false), it('3','Med ball or sledgehammer slams','1 min','Forcible entry',false)]
+    },
+    fields:[{k:'result',l:'Rounds completed',t:'text'},{k:'hr',l:'Avg heart rate',t:'number'}]};
+}
+function day6(w){
+  if (w===1 || w===12) return {kind:'test', code:'T', title: w===1 ? 'Baseline test' : 'Final test', minutes:28,
+    focus: w===1 ? 'Sets your starting numbers. Treadmill at 1% incline or a track is fine for the run.' : 'Same tests as week 1, same conditions if you can. See what twelve weeks did.',
+    steps:[it('1','Warm-up','5 min easy jog plus a few strides','',false), it('2','1.5-mile run','For time','',false), it('3','Rest','5 min, walk it off','',false), it('4','Push-ups','One set, max reps','Chest to a fist on the floor, no resting at the top',false), it('5','Pull-ups','One set, max reps','Strict, from a dead hang',false)],
+    fields:[{k:'run',l:'1.5-mile time (mm:ss)',t:'text'},{k:'pushups',l:'Push-ups',t:'number'},{k:'pullups',l:'Pull-ups',t:'number'}]};
+  return {kind:'cardio', code:'Z', optional:true, title:'Zone 2 and mobility', minutes:30,
+    focus:'Optional sixth day. Easy aerobic work that speeds recovery. Skip it if you are beat up after shift.',
+    steps:[it('1','Zone 2','25 min easy bike or run','Nose breathing, talk in full sentences',false), it('2','Mobility','5 min','Hip flexor stretch, 90/90 hips, thoracic rotations, child\u2019s pose',false)],
+    fields:cardioFields};
+}
+const PLAN = [];
+for (let w=1; w<=12; w++){
+  const days = [strengthA(w), bike(w), hybrid(w), run(w), strengthB(w), day6(w)];
+  days.forEach((s,i)=>{ s.id='w'+w+'d'+(i+1); s.week=w; s.day=i+1; PLAN.push(s); });
+}
+const BY_ID = Object.fromEntries(PLAN.map(s=>[s.id,s]));
+const REQUIRED = PLAN.filter(s=>!s.optional);
+const VNAME = {bw:'Bodyweight', db:'DB / KB', gym:'Full gym'};
+
+/* ---------------- State and storage ---------------- */
+const KEY='fireground-hybrid.v1';
+const state = {logs:{}, settings:{version:'gym'}, tab:'today', openId:null};
+let REMOTE=null;
+(function loadLocal(){ try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s){ state.logs=s.logs||{}; state.settings=Object.assign(state.settings,s.settings||{});} }catch(e){} })();
+let lt=null;
+function saveLocal(){ clearTimeout(lt); lt=setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify({logs:state.logs, settings:state.settings})); }catch(e){} },250); }
+function setSync(t){ document.getElementById('sync').textContent=t; }
+const clean = o => JSON.parse(JSON.stringify(o));
+async function pushLog(id){
+  saveLocal();
+  if(!REMOTE) return true;
+  try{ await REMOTE.doc('log_'+id).set(clean(state.logs[id])); setSync('Saved to your account'); return true; }
+  catch(e){ setSync('Saved on this device only'); return false; }
+}
+async function pushSettings(){
+  saveLocal();
+  if(!REMOTE) return;
+  try{ await REMOTE.doc('settings').set(clean(state.settings)); }catch(e){}
+}
+async function initRemote(){
+  if(!window.claude || typeof claude.use!=='function') return;
+  try{
+    const [db,user] = await Promise.all([claude.use('db'), claude.use('user')]);
+    if(!db || !user) return;
+    const uid = await user.id(); if(!uid) return;
+    const col = db.collection('data/users/'+uid);
+    const snap = await col.get();
+    const remote = {}; let rs=null;
+    snap.docs.forEach(d=>{ if(!d.exists) return; if(d.id==='settings') rs=d.data(); else if(d.id.startsWith('log_')) remote[d.id.slice(4)]=d.data(); });
+    REMOTE = col;
+    const toPush=[];
+    for(const id of new Set([...Object.keys(remote),...Object.keys(state.logs)])){
+      const r=remote[id], l=state.logs[id];
+      if(r && (!l || (r.updatedAt||0) >= (l.updatedAt||0))) state.logs[id]=clean(r);
+      else if(l) toPush.push(id);
+    }
+    if(rs) state.settings=Object.assign(state.settings, rs);
+    for(const id of toPush){ await col.doc('log_'+id).set(clean(state.logs[id])); }
+    saveLocal(); setSync('Saved to your account'); render();
+  }catch(e){ REMOTE=null; setSync('Saved on this device'); }
+}
+
+/* ---------------- Helpers ---------------- */
+const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g,'-');
+const logOf = id => state.logs[id] || (state.logs[id] = {items:{}, fields:{}, notes:'', rpe:null, done:false, skipped:false});
+const isDone = id => !!(state.logs[id] && state.logs[id].done);
+const isSkip = id => !!(state.logs[id] && state.logs[id].skipped && !state.logs[id].done);
+function nextSession(){ return PLAN.find(s=>!isDone(s.id) && !isSkip(s.id)) || null; }
+function currentWeek(){ const n=nextSession(); return n ? n.week : 12; }
+function toast(t){ const el=document.getElementById('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('show'),2600); }
+function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }catch(e){ return iso; } }
+
+/* ---------------- Views ---------------- */
+function sessionView(s, isNext){
+  const log = state.logs[s.id] || {items:{},fields:{},notes:'',rpe:null};
+  const v = log.done && log.version ? log.version : state.settings.version;
+  const list = s.versions ? s.versions[v] : s.steps;
+  let h = '';
+  if(!isNext && state.openId) h += `<button class="btn link" data-act="back">Back to ${state.tab==='plan'?'plan':'up next'}</button>`;
+  h += `<p class="where">${isNext?'Up next: ':''}Week ${s.week}, day ${s.day}${s.optional?' (optional)':''}</p>`;
+  h += `<h1>${esc(s.title)}</h1><div class="trim" aria-hidden="true"></div>`;
+  h += `<div class="meta"><span>About ${s.minutes} min</span><span>${PH_NAME[PH(s.week)]}</span></div>`;
+  h += `<p>${esc(s.focus)}</p>`;
+  if(log.done) h += `<div class="done-note"><div class="trim thin" aria-hidden="true"></div><span>Done ${log.date?fmtDate(log.date):''}${log.version&&s.versions?' with '+VNAME[log.version]:''}</span></div>`;
+  if(s.versions){
+    h += `<div class="seg" role="group" aria-label="Equipment">${['bw','db','gym'].map(k=>`<button data-ver="${k}" aria-pressed="${k===v}">${VNAME[k]}</button>`).join('')}</div>`;
+    h += `<div class="hint">Home: bodyweight. Shift and gym days: full gym.</div>`;
+  }
+  if(s.kind==='strength'||s.kind==='hybrid') h += `<div class="block"><h3>Warm-up</h3><p class="small muted" style="margin:4px 0 0">${WARM}</p></div>`;
+  h += `<div class="block">${s.how?`<p class="small muted">${esc(s.how)}</p>`:''}<ul class="items">`;
+  list.forEach(x=>{
+    const key = v+':'+slug(x.name);
+    const iv = (log.items||{})[key] || {};
+    h += `<li class="item"><span class="lab">${esc(x.lab)}</span><div><div class="nm">${esc(x.name)}</div><div class="rx">${esc(x.rx)}</div>${x.note?`<div class="note">${esc(x.note)}</div>`:''}</div>`;
+    if(x.log) h += `<div class="inputs"><label class="f">Load<input type="text" inputmode="decimal" data-f="items|${key}|load" value="${esc(iv.load)}" placeholder="${v==='bw'?'bodyweight':'lb'}"></label><label class="f">Reps done<input type="text" data-f="items|${key}|reps" value="${esc(iv.reps)}" placeholder="e.g. 10,10,9"></label></div>`;
+    h += `</li>`;
+  });
+  h += `</ul></div>`;
+  if(s.fields){
+    h += `<div class="block"><h3>Results</h3><div class="fields" style="margin-top:8px">${s.fields.map(f=>`<label class="f">${f.l}<input type="${f.t==='number'?'number':'text'}" ${f.t==='number'?'inputmode="numeric"':''} data-f="fields|${f.k}" value="${esc((log.fields||{})[f.k])}"></label>`).join('')}</div></div>`;
+  }
+  h += `<div class="block"><h3>How hard was it?</h3><p class="small muted" style="margin:2px 0 0">1 is easy, 10 is everything you had.</p><div class="rpe" role="group" aria-label="Session effort">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-rpe="${n}" aria-pressed="${log.rpe===n}">${n}</button>`).join('')}</div>
+    <label class="f" style="margin-top:10px">Notes<textarea data-f="notes" placeholder="Calls overnight, soreness, what felt good">${esc(log.notes)}</textarea></label></div>`;
+  h += `<div class="actions">`;
+  if(log.done) h += `<button class="btn ghost" data-act="save">Save changes</button><button class="btn link" data-act="undone">Mark as not done</button>`;
+  else {
+    h += `<button class="btn primary" data-act="done">Mark done</button><button class="btn ghost" data-act="save">Save for later</button>`;
+    h += isSkip(s.id) ? `<button class="btn link" data-act="unskip">Put back in the queue</button>` : `<button class="btn link" data-act="skip">Skip this session</button>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+function todayView(){
+  if(state.openId) return sessionView(BY_ID[state.openId], false);
+  const n = nextSession();
+  if(!n) return `<h1>Twelve weeks, done.</h1><div class="trim" aria-hidden="true"></div><p>Every session is logged or skipped. Open Progress to compare your week 1 and week 12 numbers.</p>`;
+  const wkStart = PLAN.find(s=>s.week===n.week);
+  let h = '';
+  if(n.id===wkStart.id) h += `<div class="block"><h3>Week ${n.week}: ${PH_NAME[PH(n.week)]}</h3><p class="small muted" style="margin:4px 0 0">${PH_NOTE[PH(n.week)]}</p></div>`;
+  return h + sessionView(n, true);
+}
+
+function planView(){
+  const cw = currentWeek(), nx = nextSession();
+  let h = `<h1>12-week plan</h1><div class="trim" aria-hidden="true"></div>
+  <p>Do the days in order and fit them around your shifts; they don't have to land on set weekdays. Five sessions a week, plus an optional sixth.</p>
+  <div class="legend"><span>S strength</span><span>B bike</span><span>F fireground</span><span>R run</span><span>Z zone 2</span><span>T test</span></div>`;
+  for(let w=1; w<=12; w++){
+    h += `<section class="week${w===cw?' now':''}"><div class="wk-head"><h3>Week ${w}</h3><span class="small muted">${PH_NAME[PH(w)]}</span></div><div class="tags">`;
+    PLAN.filter(s=>s.week===w).forEach(s=>{
+      const cls = ['tag', s.optional?'opt':'', isDone(s.id)?'done':'', isSkip(s.id)?'skip':'', nx&&nx.id===s.id?'next':''].join(' ');
+      h += `<button class="${cls}" data-open="${s.id}" aria-label="Day ${s.day}: ${esc(s.title)}${isDone(s.id)?', done':isSkip(s.id)?', skipped':''}"><b>${s.code}</b><small>Day ${s.day}</small></button>`;
+    });
+    h += `</div></section>`;
+  }
+  return h;
+}
+
+function progressView(){
+  const done = REQUIRED.filter(s=>isDone(s.id)).length;
+  const extra = PLAN.filter(s=>s.optional && isDone(s.id)).length;
+  let h = `<h1>Progress</h1><div class="trim" aria-hidden="true"></div>`;
+  h += `<div class="block"><div class="count">${done} <span class="muted" style="font-size:24px">of ${REQUIRED.length}</span></div><p class="muted" style="margin:4px 0 0">core sessions done, plus ${extra} optional zone 2 day${extra===1?'':'s'}. You're in week ${currentWeek()}.</p></div>`;
+
+  const t1 = (state.logs.w1d6||{}).fields||{}, t2=(state.logs.w12d6||{}).fields||{};
+  const b1 = state.logs.w1d3||{}, b2 = state.logs.w12d3||{};
+  const cell = x => (x===undefined||x===null||x==='') ? '<span class="muted">–</span>' : esc(x);
+  h += `<h2>Tests</h2><div class="block"><table><thead><tr><th>Test</th><th>Week 1</th><th>Week 12</th></tr></thead><tbody>
+    <tr><td>1.5-mile run</td><td class="num">${cell(t1.run)}</td><td class="num">${cell(t2.run)}</td></tr>
+    <tr><td>Push-ups</td><td class="num">${cell(t1.pushups)}</td><td class="num">${cell(t2.pushups)}</td></tr>
+    <tr><td>Pull-ups</td><td class="num">${cell(t1.pullups)}</td><td class="num">${cell(t2.pullups)}</td></tr>
+    <tr><td>Fireground benchmark${b1.version?`<div class="note">${VNAME[b1.version]}</div>`:''}</td><td class="num">${cell((b1.fields||{}).result)}</td><td class="num">${cell((b2.fields||{}).result)}</td></tr>
+  </tbody></table></div>`;
+
+  // main lifts
+  const best = {};
+  PLAN.filter(s=>s.kind==='strength').forEach(s=>{
+    const log = state.logs[s.id]; if(!log||!log.items) return;
+    ['bw','db','gym'].forEach(v=>s.versions[v].filter(x=>x.main).forEach(x=>{
+      const e = log.items[v+':'+slug(x.name)]; if(!e) return;
+      const n = parseFloat(String(e.load||'').replace(/[^0-9.]/g,''));
+      const r = best[x.name] || (best[x.name]={first:null,best:null});
+      if(!isNaN(n)){ if(!r.first) r.first={n,w:s.week}; if(!r.best||n>=r.best.n) r.best={n,w:s.week,reps:e.reps}; }
+      else if(e.reps && !r.best){ r.reps = e.reps; r.wk=s.week; }
+    }));
+  });
+  const names = Object.keys(best);
+  h += `<h2>Main lifts</h2><div class="block">`;
+  if(!names.length) h += `<p class="muted" style="margin:0">Log a load on any A1 or A2 lift and your first and best numbers show up here.</p>`;
+  else {
+    h += `<table><thead><tr><th>Lift</th><th>First</th><th>Best</th></tr></thead><tbody>`;
+    names.forEach(n=>{ const r=best[n];
+      h += `<tr><td>${esc(n)}</td><td class="num">${r.first?esc(r.first.n)+'<div class="note">wk '+r.first.w+'</div>':'<span class="muted">–</span>'}</td><td class="num">${r.best?esc(r.best.n)+'<div class="note">wk '+r.best.w+(r.best.reps?', '+esc(r.best.reps):'')+'</div>':(r.reps?esc(r.reps)+'<div class="note">wk '+r.wk+'</div>':'<span class="muted">–</span>')}</td></tr>`; });
+    h += `</tbody></table>`;
+  }
+  h += `</div>`;
+
+  // effort by week
+  const avg = []; for(let w=1;w<=12;w++){ const r = PLAN.filter(s=>s.week===w && isDone(s.id) && state.logs[s.id].rpe).map(s=>state.logs[s.id].rpe); avg.push(r.length ? r.reduce((a,b)=>a+b,0)/r.length : null); }
+  h += `<h2>Average effort by week</h2><div class="block"><div class="bars" aria-label="Average session effort per week">${avg.map((a,i)=>`<div class="bar${a?'':' empty'}" style="height:${a?a*10:2}%" title="Week ${i+1}: ${a?a.toFixed(1):'no data'}"></div>`).join('')}</div><div class="bar-x">${avg.map((_,i)=>`<span>${i+1}</span>`).join('')}</div><p class="small muted" style="margin:10px 0 0">Expect it to climb through each block and dip in weeks 4 and 8. If deload weeks still feel like an 8, sleep and shift load are catching up with you.</p></div>`;
+  h += `<div class="actions"><button class="btn link" data-act="reset">Erase all logged data</button></div>`;
+  return h;
+}
+
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = state.tab==='plan' ? (state.openId ? sessionView(BY_ID[state.openId], false) : planView())
+                : state.tab==='progress' ? progressView() : todayView();
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-current', b.dataset.tab===state.tab ? 'page' : 'false'));
+}
+
+/* ---------------- Events ---------------- */
+function currentSession(){
+  if(state.openId) return BY_ID[state.openId];
+  return state.tab==='today' ? nextSession() : null;
+}
+document.querySelector('nav.tabs').addEventListener('click', e=>{
+  const b = e.target.closest('button[data-tab]'); if(!b) return;
+  state.tab = b.dataset.tab; state.openId = null; render(); window.scrollTo(0,0);
+});
+document.getElementById('app').addEventListener('input', e=>{
+  const el = e.target.closest('[data-f]'); if(!el) return;
+  const s = currentSession(); if(!s) return;
+  const log = logOf(s.id); const p = el.dataset.f.split('|');
+  if(p[0]==='notes') log.notes = el.value;
+  else if(p[0]==='fields'){ log.fields = log.fields||{}; log.fields[p[1]] = el.value; }
+  else if(p[0]==='items'){ log.items = log.items||{}; const o = log.items[p[1]] || (log.items[p[1]]={}); o[p[2]] = el.value; }
+  log.updatedAt = Date.now(); saveLocal();
+});
+document.getElementById('app').addEventListener('click', async e=>{
+  const t = e.target.closest('button'); if(!t) return;
+  if(t.dataset.open){ state.openId = t.dataset.open; render(); window.scrollTo(0,0); return; }
+  const s = currentSession();
+  if(t.dataset.ver){ state.settings.version = t.dataset.ver; if(s && isDone(s.id)){ const l=logOf(s.id); l.version=t.dataset.ver; l.updatedAt=Date.now(); saveLocal(); } render(); pushSettings(); return; }
+  if(t.dataset.rpe && s){ const log=logOf(s.id); log.rpe=+t.dataset.rpe; log.updatedAt=Date.now(); render(); saveLocal(); return; }
+  const act = t.dataset.act; if(!act) return;
+  if(act==='back'){ state.openId=null; render(); window.scrollTo(0,0); return; }
+  if(act==='reset'){
+    if(!confirm('Erase every logged session and test result? This cannot be undone.')) return;
+    const ids = Object.keys(state.logs); state.logs = {}; saveLocal();
+    if(REMOTE){ for(const id of ids){ try{ await REMOTE.doc('log_'+id).delete(); }catch(err){} } }
+    render(); toast('All logged data erased'); return;
+  }
+  if(!s) return;
+  const log = logOf(s.id); log.updatedAt = Date.now();
+  if(act==='done'){
+    log.done = true; log.skipped = false; log.date = new Date().toISOString(); if(s.versions) log.version = state.settings.version;
+    const ok = await pushLog(s.id); state.openId = null; state.tab='today'; render(); window.scrollTo(0,0);
+    const n = nextSession(); toast((ok?'Marked done.':'Marked done on this device.') + (n?' Up next: '+n.title:''));
+  } else if(act==='save'){
+    if(s.versions && log.done) log.version = log.version || state.settings.version;
+    const ok = await pushLog(s.id); toast(ok?'Saved':'Saved on this device');
+  } else if(act==='undone'){
+    log.done = false; await pushLog(s.id); render(); toast('Marked as not done');
+  } else if(act==='skip'){
+    log.skipped = true; await pushLog(s.id); state.openId=null; render(); window.scrollTo(0,0); toast('Skipped');
+  } else if(act==='unskip'){
+    log.skipped = false; await pushLog(s.id); render(); toast('Back in the queue');
+  }
+});
+
+render();
+initRemote();
+</script>
+</body>
+</html>
