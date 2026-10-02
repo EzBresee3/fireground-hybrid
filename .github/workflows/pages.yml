@@ -1,0 +1,39 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage site (repo root minus reference/ and dev files)
+        run: |
+          mkdir _site
+          tar --exclude=./.git --exclude=./.github --exclude=./reference --exclude=./tools --exclude=./_site -cf - . | tar -xf - -C _site
+          # Stamp the service worker cache with the commit, so every deploy offers an update.
+          sed -i "s/const VERSION = 'dev'/const VERSION = '${GITHUB_SHA::12}'/" _site/sw.js
+          grep -q "const VERSION = '${GITHUB_SHA::12}'" _site/sw.js
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
