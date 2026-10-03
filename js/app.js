@@ -1,9 +1,45 @@
-import { PH, PH_NAME, PH_NOTE, WARM, PLAN, BY_ID, REQUIRED, VNAME } from './program.js';
+import { PH, PH_NAME, PH_NOTE, WARM, VNAME, MODES, PROGRAMS, CODE_NAME, DEFAULT_CYCLE, planFor, cycleOf } from './program.js';
 import { loadAll, set, setMany, requestPersist, buildExport, validateImport } from './storage.js';
 import { initSync, markDirty, pushNow, connect, useRemote, keepLocal, disconnect, status as syncStatus } from './sync.js';
 
 /* ---------------- State and storage ---------------- */
-const state = {logs:{}, settings:{version:'gym'}, meta:{}, tab:'today', openId:null};
+const state = {logs:{}, settings:{version:'gym', mode:'bike', cycles:[{...DEFAULT_CYCLE}]}, meta:{}, tab:'today', openId:null, planCycle:null, picker:false, pick:null};
+const normSettings = s => Object.assign({version:'gym', mode:'bike'}, s || {});
+
+/* ---------------- Cycles ----------------
+   settings.cycles = [{n, program, baseline, startedAt, finishedAt}]. Logs from every cycle stay in
+   state.logs forever (cycle 1 ids are w1d1..., later cycles c2:w1d1...), so nothing is ever replaced. */
+let PLAN = [], BY_ID = {}, REQUIRED = [];
+const cycles = () => state.settings.cycles;
+const curCycle = () => cycles()[cycles().length-1];
+const progOf = c => PROGRAMS[c.program] || PROGRAMS.hybrid;
+const cycleLabel = c => `Cycle ${c.n} · ${progOf(c).name}`;
+function refreshPlan(){
+  if(!Array.isArray(state.settings.cycles) || !state.settings.cycles.length) state.settings.cycles = [{...DEFAULT_CYCLE}];
+  PLAN = planFor(curCycle()); BY_ID = Object.fromEntries(PLAN.map(s=>[s.id,s])); REQUIRED = PLAN.filter(s=>!s.optional);
+}
+function findSession(id){
+  if(BY_ID[id]) return BY_ID[id];
+  const c = cycles().find(x=>x.n===cycleOf(id));
+  return c ? planFor(c).find(s=>s.id===id) || null : null;
+}
+const MODE_DONE = {bike:'on the bike', stairs:'on the stair climber', run:'running'};
+
+/* Most recent earlier log of the same exercise, this cycle or any before it. */
+function lastLine(s, v, key){
+  const cs = cycles(), ci = cs.findIndex(c=>c.n===s.cycle);
+  for(let i=ci; i>=0; i--){
+    const plan = planFor(cs[i]); let j = i===ci ? plan.findIndex(x=>x.id===s.id) : plan.length;
+    while(--j >= 0){
+      const e = ((state.logs[plan[j].id]||{}).items||{})[key];
+      if(e && (e.load || e.reps)){
+        const p = plan[j], load = e.load ? esc(e.load) + (/^\s*[\d.]+\s*$/.test(e.load) && v!=='bw' ? ' lb' : '') : '';
+        return `<div class="note last">Last time: ${load}${load && e.reps ? ' × ' : ''}${e.reps ? esc(e.reps) : ''} (${p.cycle!==s.cycle ? 'cycle '+p.cycle+', ' : ''}wk ${p.week})</div>`;
+      }
+    }
+  }
+  return '';
+}
 let lt=null;
 function saveLocal(){ clearTimeout(lt); lt=setTimeout(flush,250); }
 async function flush(){
@@ -37,14 +73,21 @@ function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString(undefined,{m
 function sessionView(s, isNext){
   const log = state.logs[s.id] || {items:{},fields:{},notes:'',rpe:null};
   const v = log.done && log.version ? log.version : state.settings.version;
-  const list = s.versions ? s.versions[v] : s.steps;
+  const md = log.done ? log.mode || 'bike' : state.settings.mode; // logs from before the machine choice were all bike
+  const sm = s.modes ? s.modes[md] || s.modes.bike : null;
+  const list = s.versions ? s.versions[v] : sm ? sm.steps : s.steps;
+  const fields = sm ? sm.fields : s.fields;
   let h = '';
   if(!isNext && state.openId) h += `<button class="btn link" data-act="back">Back to ${state.tab==='plan'?'plan':'up next'}</button>`;
-  h += `<p class="where">${isNext?'Up next: ':''}Week ${s.week}, day ${s.day}${s.optional?' (optional)':''}</p>`;
-  h += `<h1>${esc(s.title)}</h1><div class="trim" aria-hidden="true"></div>`;
+  h += `<p class="where">${isNext?'Up next: ':''}${cycles().length>1 ? `Cycle ${s.cycle}, week ${s.week}` : `Week ${s.week}`}, day ${s.day}${s.optional?' (optional)':''}</p>`;
+  h += `<h1>${esc(sm ? sm.title : s.title)}</h1><div class="trim" aria-hidden="true"></div>`;
   h += `<div class="meta"><span>About ${s.minutes} min</span><span>${PH_NAME[PH(s.week)]}</span></div>`;
-  h += `<p>${esc(s.focus)}</p>`;
-  if(log.done) h += `<div class="done-note"><div class="trim thin" aria-hidden="true"></div><span>Done ${log.date?fmtDate(log.date):''}${log.version&&s.versions?' with '+VNAME[log.version]:''}</span></div>`;
+  h += `<p>${esc(sm ? sm.focus : s.focus)}</p>`;
+  if(log.done) h += `<div class="done-note"><div class="trim thin" aria-hidden="true"></div><span>Done ${log.date?fmtDate(log.date):''}${log.version&&s.versions?' with '+VNAME[log.version]:''}${log.mode&&s.modes?' '+MODE_DONE[log.mode]:''}</span></div>`;
+  if(s.modes){
+    h += `<div class="seg" role="group" aria-label="Machine">${Object.keys(MODES).map(k=>`<button data-mode="${k}" aria-pressed="${k===md}">${MODES[k]}</button>`).join('')}</div>`;
+    h += `<div class="hint">Same workout on whichever you have today.</div>`;
+  }
   if(s.versions){
     h += `<div class="seg" role="group" aria-label="Equipment">${['bw','db','gym'].map(k=>`<button data-ver="${k}" aria-pressed="${k===v}">${VNAME[k]}</button>`).join('')}</div>`;
     h += `<div class="hint">Home: bodyweight. Shift and gym days: full gym.</div>`;
@@ -55,13 +98,13 @@ function sessionView(s, isNext){
   list.forEach(x=>{
     const key = v+':'+slug(x.name);
     const iv = (log.items||{})[key] || {};
-    h += `<li class="item"><span class="lab">${esc(x.lab)}</span><div><div class="nm">${esc(x.name)}</div><div class="rx">${esc(x.rx)}</div>${x.note?`<div class="note">${esc(x.note)}</div>`:''}</div>`;
+    h += `<li class="item"><span class="lab">${esc(x.lab)}</span><div><div class="nm">${esc(x.name)}</div><div class="rx">${esc(x.rx)}</div>${x.note?`<div class="note">${esc(x.note)}</div>`:''}${x.log ? lastLine(s, v, key) : ''}</div>`;
     if(x.log) h += `<div class="inputs"><label class="f">Load<input type="text" inputmode="decimal" data-f="items|${key}|load" value="${esc(iv.load)}" placeholder="${v==='bw'?'bodyweight':'lb'}"></label><label class="f">Reps done<input type="text" data-f="items|${key}|reps" value="${esc(iv.reps)}" placeholder="e.g. 10,10,9"></label></div>`;
     h += `</li>`;
   });
   h += `</ul></div>`;
-  if(s.fields){
-    h += `<div class="block"><h3>Results</h3><div class="fields" style="margin-top:8px">${s.fields.map(f=>`<label class="f">${f.l}<input type="${f.t==='number'?'number':'text'}" ${f.t==='number'?'inputmode="numeric"':''} data-f="fields|${f.k}" value="${esc((log.fields||{})[f.k])}"></label>`).join('')}</div></div>`;
+  if(fields){
+    h += `<div class="block"><h3>Results</h3><div class="fields" style="margin-top:8px">${fields.map(f=>`<label class="f">${f.l}<input type="${f.t==='number'?'number':'text'}" ${f.t==='number'?'inputmode="numeric"':''} data-f="fields|${f.k}" value="${esc((log.fields||{})[f.k])}"></label>`).join('')}</div></div>`;
   }
   h += `<div class="block"><h3>How hard was it?</h3><p class="small muted" style="margin:2px 0 0">1 is easy, 10 is everything you had.</p><div class="rpe" role="group" aria-label="Session effort">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-rpe="${n}" aria-pressed="${log.rpe===n}">${n}</button>`).join('')}</div>
     <label class="f" style="margin-top:10px">Notes<textarea data-f="notes" placeholder="Calls overnight, soreness, what felt good">${esc(log.notes)}</textarea></label></div>`;
@@ -76,46 +119,76 @@ function sessionView(s, isNext){
 }
 
 function todayView(){
-  if(state.openId) return sessionView(BY_ID[state.openId], false);
+  if(state.openId) return sessionView(findSession(state.openId), false);
   const n = nextSession();
-  if(!n) return `<h1>Twelve weeks, done.</h1><div class="trim" aria-hidden="true"></div><p>Every session is logged or skipped. Open Progress to compare your week 1 and week 12 numbers.</p>`;
-  const wkStart = PLAN.find(s=>s.week===n.week);
+  if(!n || state.picker) return pickerView(!n);
+  const wkStart = PLAN.find(s=>s.week===n.week), c = curCycle();
   let h = '';
-  if(n.id===wkStart.id) h += `<div class="block"><h3>Week ${n.week}: ${PH_NAME[PH(n.week)]}</h3><p class="small muted" style="margin:4px 0 0">${PH_NOTE[PH(n.week)]}</p></div>`;
+  if(n.id===wkStart.id){
+    h += `<div class="block"><h3>Week ${n.week}: ${PH_NAME[PH(n.week)]}</h3><p class="small muted" style="margin:4px 0 0">${PH_NOTE[PH(n.week)]}</p>`;
+    if(n.week===1 && c.n>1) h += `<p class="small muted" style="margin:8px 0 0">${esc(cycleLabel(c))}. ${c.baseline===false ? `No baseline tests this time: your week 12 results from cycle ${c.n-1} are your starting numbers.` : `Week 1 includes baseline tests.`}</p>`;
+    h += `</div>`;
+  }
   return h + sessionView(n, true);
 }
 
+function pickerView(complete){
+  const c = curCycle(), next = c.n + 1, pick = state.pick || c.program;
+  let h = complete
+    ? `<h1>Twelve weeks, done.</h1><div class="trim" aria-hidden="true"></div><p>Every session in cycle ${c.n} is logged or skipped, and it stays in your log for good. Open Progress to compare your numbers.</p>`
+    : `<button class="btn link" data-act="cancel-cycle">Back to up next</button><h1>Start the next cycle</h1><div class="trim" aria-hidden="true"></div><p>Anything you haven't done in cycle ${c.n} stays in your log as it is.</p>`;
+  h += `<h2>Pick cycle ${next}</h2><p class="small muted">The main lifts and accessories rotate to new variations every cycle. The fireground circuits stay the same, so your benchmark keeps comparing.</p>`;
+  h += `<div class="progs" role="radiogroup" aria-label="Program">${Object.entries(PROGRAMS).map(([k,p])=>`<button class="prog" role="radio" data-prog="${k}" aria-checked="${k===pick}"><b>${esc(p.name)}</b><small>${esc(p.perWeek)}</small><span>${esc(p.blurb)}</span></button>`).join('')}</div>`;
+  h += `<div class="actions"><button class="btn primary" data-act="start-cycle">Start cycle ${next}</button></div>`;
+  return h;
+}
+
 function planView(){
-  const cw = currentWeek(), nx = nextSession();
-  let h = `<h1>12-week plan</h1><div class="trim" aria-hidden="true"></div>
-  <p>Do the days in order and fit them around your shifts; they don't have to land on set weekdays. Five sessions a week, plus an optional sixth.</p>
-  <div class="legend"><span>S strength</span><span>B bike</span><span>F fireground</span><span>R run</span><span>Z zone 2</span><span>T test</span></div>`;
+  const cs = cycles(), vc = cs.find(c=>c.n===state.planCycle) || curCycle(), isCur = vc===curCycle();
+  const plan = planFor(vc), i = cs.indexOf(vc);
+  const cw = isCur ? currentWeek() : null, nx = isCur ? nextSession() : null;
+  const codes = [...new Set(plan.map(s=>s.code))];
+  let h = `<h1>12-week plan</h1><div class="trim" aria-hidden="true"></div>`;
+  h += `<div class="cyc">${cs.length>1 ? `<button data-cyc="${i>0?cs[i-1].n:''}" ${i>0?'':'disabled'} aria-label="Previous cycle">‹</button>` : ''}<span>${esc(cycleLabel(vc))}${isCur && cs.length>1 ? ' (current)' : ''}</span>${cs.length>1 ? `<button data-cyc="${i<cs.length-1?cs[i+1].n:''}" ${i<cs.length-1?'':'disabled'} aria-label="Next cycle">›</button>` : ''}</div>`;
+  h += `<p>Do the days in order and fit them around your shifts; they don't have to land on set weekdays. ${progOf(vc).perWeek}</p>
+  <div class="legend">${codes.map(k=>`<span>${k} ${CODE_NAME[k]}</span>`).join('')}</div>`;
   for(let w=1; w<=12; w++){
     h += `<section class="week${w===cw?' now':''}"><div class="wk-head"><h3>Week ${w}</h3><span class="small muted">${PH_NAME[PH(w)]}</span></div><div class="tags">`;
-    PLAN.filter(s=>s.week===w).forEach(s=>{
+    plan.filter(s=>s.week===w).forEach(s=>{
       const cls = ['tag', s.optional?'opt':'', isDone(s.id)?'done':'', isSkip(s.id)?'skip':'', nx&&nx.id===s.id?'next':''].join(' ');
       h += `<button class="${cls}" data-open="${s.id}" aria-label="Day ${s.day}: ${esc(s.title)}${isDone(s.id)?', done':isSkip(s.id)?', skipped':''}"><b>${s.code}</b><small>Day ${s.day}</small></button>`;
     });
     h += `</div></section>`;
   }
+  if(isCur && nx) h += `<div class="actions"><button class="btn link" data-act="early-cycle">Start the next cycle early</button></div>`;
   return h;
 }
 
 function progressView(){
   const done = REQUIRED.filter(s=>isDone(s.id)).length;
   const extra = PLAN.filter(s=>s.optional && isDone(s.id)).length;
+  const c = curCycle(), prevC = cycles()[cycles().length-2], hasOpt = PLAN.some(s=>s.optional);
+  const optName = c.program==='hybrid' ? `optional zone 2 day${extra===1?'':'s'}` : `optional session${extra===1?'':'s'}`;
   let h = `<h1>Progress</h1><div class="trim" aria-hidden="true"></div>`;
-  h += `<div class="block"><div class="count">${done} <span class="muted" style="font-size:24px">of ${REQUIRED.length}</span></div><p class="muted" style="margin:4px 0 0">core sessions done, plus ${extra} optional zone 2 day${extra===1?'':'s'}. You're in week ${currentWeek()}.</p></div>`;
+  if(cycles().length>1) h += `<p class="where" style="margin-bottom:6px">${esc(cycleLabel(c))}</p>`;
+  h += `<div class="block"><div class="count">${done} <span class="muted" style="font-size:24px">of ${REQUIRED.length}</span></div><p class="muted" style="margin:4px 0 0">core sessions done${hasOpt ? `, plus ${extra} ${optName}` : ''}. You're in week ${currentWeek()}.</p></div>`;
 
-  const t1 = (state.logs.w1d6||{}).fields||{}, t2=(state.logs.w12d6||{}).fields||{};
-  const b1 = state.logs.w1d3||{}, b2 = state.logs.w12d3||{};
+  // Start = week 1 tests, or last cycle's week 12 when this cycle skipped the baseline.
+  const prevPlan = prevC ? planFor(prevC) : null, fromPrev = c.baseline===false && !!prevPlan;
+  const testIn = (pl, w) => pl.find(s=>s.kind==='test' && s.week===w), benchIn = (pl, w) => pl.find(s=>s.bench && s.week===w);
+  const fieldsOf = s => (s && state.logs[s.id] && state.logs[s.id].fields) || {};
+  const t1 = fieldsOf(fromPrev ? testIn(prevPlan,12) : testIn(PLAN,1)), t2 = fieldsOf(testIn(PLAN,12));
+  const b2s = benchIn(PLAN,12); let b1s = fromPrev ? benchIn(prevPlan,12) : benchIn(PLAN,1);
+  if(b1s && b2s && b1s.code!==b2s.code) b1s = null;
+  const b1 = (b1s && state.logs[b1s.id]) || {}, b2 = (b2s && state.logs[b2s.id]) || {};
+  const benchName = b2s && b2s.code==='C' ? 'Test simulation' : 'Fireground benchmark';
   const cell = x => (x===undefined||x===null||x==='') ? '<span class="muted">–</span>' : esc(x);
-  h += `<h2>Tests</h2><div class="block"><table><thead><tr><th>Test</th><th>Week 1</th><th>Week 12</th></tr></thead><tbody>
+  h += `<h2>Tests</h2><div class="block"><table><thead><tr><th>Test</th><th>${fromPrev?'Start':'Week 1'}</th><th>Week 12</th></tr></thead><tbody>
     <tr><td>1.5-mile run</td><td class="num">${cell(t1.run)}</td><td class="num">${cell(t2.run)}</td></tr>
     <tr><td>Push-ups</td><td class="num">${cell(t1.pushups)}</td><td class="num">${cell(t2.pushups)}</td></tr>
     <tr><td>Pull-ups</td><td class="num">${cell(t1.pullups)}</td><td class="num">${cell(t2.pullups)}</td></tr>
-    <tr><td>Fireground benchmark${b1.version?`<div class="note">${VNAME[b1.version]}</div>`:''}</td><td class="num">${cell((b1.fields||{}).result)}</td><td class="num">${cell((b2.fields||{}).result)}</td></tr>
-  </tbody></table></div>`;
+    <tr><td>${benchName}${b1.version?`<div class="note">${VNAME[b1.version]}</div>`:''}</td><td class="num">${cell((b1.fields||{}).result)}</td><td class="num">${cell((b2.fields||{}).result)}</td></tr>
+  </tbody></table>${fromPrev ? `<p class="small muted" style="margin:8px 0 0">Start is your week 12 result from cycle ${prevC.n}.</p>` : ''}</div>`;
 
   // main lifts
   const best = {};
@@ -143,14 +216,44 @@ function progressView(){
   // effort by week
   const avg = []; for(let w=1;w<=12;w++){ const r = PLAN.filter(s=>s.week===w && isDone(s.id) && state.logs[s.id].rpe).map(s=>state.logs[s.id].rpe); avg.push(r.length ? r.reduce((a,b)=>a+b,0)/r.length : null); }
   h += `<h2>Average effort by week</h2><div class="block"><div class="bars" aria-label="Average session effort per week">${avg.map((a,i)=>`<div class="bar${a?'':' empty'}" style="height:${a?a*10:2}%" title="Week ${i+1}: ${a?a.toFixed(1):'no data'}"></div>`).join('')}</div><div class="bar-x">${avg.map((_,i)=>`<span>${i+1}</span>`).join('')}</div><p class="small muted" style="margin:10px 0 0">Expect it to climb through each block and dip in weeks 4 and 8. If deload weeks still feel like an 8, sleep and shift load are catching up with you.</p></div>`;
+  h += historyView();
   h += backupView();
   h += `<div class="actions"><button class="btn link" data-act="reset">Erase all logged data</button></div>`;
   return h;
 }
 
+function historyView(){
+  const cs = cycles(); if(cs.length < 2) return '';
+  let h = `<h2>All cycles</h2><div class="block"><ul class="items">`;
+  const best = {};
+  for(const c of [...cs].reverse()){
+    const plan = planFor(c), req = plan.filter(s=>!s.optional), done = req.filter(s=>isDone(s.id)).length;
+    const dates = plan.map(s=>(state.logs[s.id]||{}).date).filter(Boolean).sort();
+    const fin = ((state.logs[(plan.find(s=>s.kind==='test' && s.week===12)||{}).id]||{}).fields)||{};
+    const tests = [fin.run && `1.5 mi ${esc(fin.run)}`, fin.pushups && `${esc(fin.pushups)} push-ups`, fin.pullups && `${esc(fin.pullups)} pull-ups`].filter(Boolean).join(' · ');
+    h += `<li class="hist"><div><b>${esc(cycleLabel(c))}</b>${c===curCycle() ? ' <span class="small muted">(current)</span>' : ''}<div class="note">${dates.length ? fmtLong(dates[0])+' – '+fmtLong(dates[dates.length-1])+' · ' : ''}${done} of ${req.length} done${tests ? ' · '+tests : ''}</div></div><button class="btn link" data-viewcyc="${c.n}">View</button></li>`;
+    for(const s of plan){
+      if(s.kind!=='strength') continue;
+      const log = state.logs[s.id]; if(!log || !log.items) continue;
+      for(const v of ['bw','db','gym']) for(const x of s.versions[v]){
+        if(!x.main) continue;
+        const e = log.items[v+':'+slug(x.name)]; if(!e) continue;
+        const n = parseFloat(String(e.load||'').replace(/[^0-9.]/g,'')); if(isNaN(n)) continue;
+        const r = best[x.name];
+        if(!r || n > r.n || (n===r.n && c.n > r.c)) best[x.name] = {n, c:c.n, w:s.week, reps:e.reps};
+      }
+    }
+  }
+  h += `</ul></div>`;
+  const names = Object.keys(best).sort();
+  if(names.length) h += `<h2>All-time bests</h2><div class="block"><table><thead><tr><th>Lift</th><th>Best</th><th>When</th></tr></thead><tbody>${names.map(n=>{ const r = best[n];
+    return `<tr><td>${esc(n)}</td><td class="num">${esc(r.n)}</td><td class="small">Cycle ${r.c}, wk ${r.w}${r.reps ? `<div class="note">${esc(r.reps)}</div>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`;
+  return h;
+}
+
 function render(){
   const app = document.getElementById('app');
-  app.innerHTML = state.tab==='plan' ? (state.openId ? sessionView(BY_ID[state.openId], false) : planView())
+  app.innerHTML = state.tab==='plan' ? (state.openId ? sessionView(findSession(state.openId), false) : planView())
                 : state.tab==='progress' ? progressView() : todayView();
   document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-current', b.dataset.tab===state.tab ? 'page' : 'false'));
   const slot = document.getElementById('timer-slot'); if(slot) slot.appendChild(timer.el);
@@ -159,12 +262,12 @@ function render(){
 
 /* ---------------- Events ---------------- */
 function currentSession(){
-  if(state.openId) return BY_ID[state.openId];
-  return state.tab==='today' ? nextSession() : null;
+  if(state.openId) return findSession(state.openId);
+  return state.tab==='today' && !state.picker ? nextSession() : null;
 }
 document.querySelector('nav.tabs').addEventListener('click', e=>{
   const b = e.target.closest('button[data-tab]'); if(!b) return;
-  state.tab = b.dataset.tab; state.openId = null; render(); window.scrollTo(0,0);
+  state.tab = b.dataset.tab; state.openId = null; state.planCycle = null; state.picker = false; render(); window.scrollTo(0,0);
 });
 document.getElementById('app').addEventListener('input', e=>{
   const el = e.target.closest('[data-f]'); if(!el) return;
@@ -178,17 +281,24 @@ document.getElementById('app').addEventListener('input', e=>{
 document.getElementById('app').addEventListener('click', async e=>{
   const t = e.target.closest('button'); if(!t) return;
   if(t.dataset.open){ state.openId = t.dataset.open; render(); window.scrollTo(0,0); return; }
+  if(t.dataset.prog){ state.pick = t.dataset.prog; render(); return; }
+  if(t.dataset.cyc){ const n = +t.dataset.cyc; state.planCycle = n===curCycle().n ? null : n; render(); return; }
+  if(t.dataset.viewcyc){ const n = +t.dataset.viewcyc; state.tab = 'plan'; state.openId = null; state.planCycle = n===curCycle().n ? null : n; render(); window.scrollTo(0,0); return; }
   const s = currentSession();
+  if(t.dataset.mode){ state.settings.mode = t.dataset.mode; if(s && isDone(s.id)){ const l=logOf(s.id); l.mode=t.dataset.mode; l.updatedAt=Date.now(); saveLocal(); } render(); pushSettings(); return; }
   if(t.dataset.ver){ state.settings.version = t.dataset.ver; if(s && isDone(s.id)){ const l=logOf(s.id); l.version=t.dataset.ver; l.updatedAt=Date.now(); saveLocal(); } render(); pushSettings(); return; }
   if(t.dataset.rpe && s){ const log=logOf(s.id); log.rpe=+t.dataset.rpe; log.updatedAt=Date.now(); render(); saveLocal(); return; }
   const act = t.dataset.act; if(!act) return;
   if(act==='back'){ state.openId=null; render(); window.scrollTo(0,0); return; }
   if(act==='reset'){
     if(!confirm('Erase every logged session and test result? This cannot be undone.' + (syncStatus().connected ? '\n\nThe synced copy on GitHub is overwritten too (GitHub keeps older versions).' : ''))) return;
-    state.logs = {}; await flush();
+    state.logs = {}; state.settings.cycles = [{...DEFAULT_CYCLE}]; state.planCycle = null; state.picker = false; refreshPlan(); await flush();
     render(); toast('All logged data erased'); return;
   }
   if(act==='export'){ exportData(); return; }
+  if(act==='early-cycle'){ state.tab = 'today'; state.openId = null; state.picker = true; render(); window.scrollTo(0,0); return; }
+  if(act==='cancel-cycle'){ state.picker = false; state.pick = null; render(); window.scrollTo(0,0); return; }
+  if(act==='start-cycle'){ await startCycle(); return; }
   if(act==='import'){ document.getElementById('import-file').click(); return; }
   if(act==='gh-connect'){ connectGitHub(t); return; }
   if(act==='gh-sync'){ markDirty(); const ok = await pushNow(); toast(ok ? 'Synced' : (syncStatus().lastError || 'Offline: it will sync when you are back online')); return; }
@@ -196,11 +306,12 @@ document.getElementById('app').addEventListener('click', async e=>{
   if(!s) return;
   const log = logOf(s.id); log.updatedAt = Date.now();
   if(act==='done'){
-    log.done = true; log.skipped = false; log.date = new Date().toISOString(); if(s.versions) log.version = state.settings.version;
+    log.done = true; log.skipped = false; log.date = new Date().toISOString(); if(s.versions) log.version = state.settings.version; if(s.modes) log.mode = state.settings.mode;
     const ok = await pushLog(s.id); state.openId = null; state.tab='today'; render(); window.scrollTo(0,0);
     const n = nextSession(); toast((ok?'Marked done.':'Marked done, but saving failed.') + (n?' Up next: '+n.title:''));
   } else if(act==='save'){
     if(s.versions && log.done) log.version = log.version || state.settings.version;
+    if(s.modes && log.done) log.mode = log.mode || state.settings.mode;
     const ok = await pushLog(s.id); toast(ok?'Saved':'Could not save');
   } else if(act==='undone'){
     log.done = false; await pushLog(s.id); render(); toast('Marked as not done');
@@ -210,6 +321,15 @@ document.getElementById('app').addEventListener('click', async e=>{
     log.skipped = false; await pushLog(s.id); render(); toast('Back in the queue');
   }
 });
+
+async function startCycle(){
+  const c = curCycle(), fin = PLAN.find(s=>s.kind==='test' && s.week===12), now = new Date().toISOString();
+  const next = {n:c.n+1, program: state.pick || c.program, baseline: !(fin && isDone(fin.id)), startedAt: now};
+  c.finishedAt = now; cycles().push(next);
+  state.pick = null; state.picker = false; state.openId = null; state.planCycle = null; state.tab = 'today';
+  refreshPlan(); await flush(); render(); window.scrollTo(0,0);
+  toast(`Cycle ${next.n} started: ${progOf(next).name}`);
+}
 
 /* ---------------- Backup ---------------- */
 const BACKUP_NAG_DAYS = 14;
@@ -254,7 +374,7 @@ async function connectGitHub(btn){
   if(!r.found){ toast('Auto-sync is on'); }
   else if(JSON.stringify(r.remote.logs) === JSON.stringify(state.logs)){ await useRemote(); toast('Auto-sync is on'); }
   else if(!hasData(state.logs) || confirm(`Found a synced copy${r.remote.exportedAt ? ' from '+fmtStamp(r.remote.exportedAt) : ''} with ${doneCount(r.remote.logs)} sessions done. This phone has ${doneCount(state.logs)}.\n\nOK: use the synced copy on this phone.\nCancel: keep this phone's data and replace the synced copy.`)){
-    state.logs = r.remote.logs; state.settings = Object.assign({version:'gym'}, r.remote.settings); state.openId = null;
+    state.logs = r.remote.logs; state.settings = normSettings(r.remote.settings); state.openId = null; state.planCycle = null; state.picker = false; refreshPlan();
     try{ await setMany([['logs', state.logs], ['settings', state.settings]]); }catch(e){}
     await useRemote(); toast('Restored from GitHub. Auto-sync is on');
   } else { await keepLocal(); toast('Auto-sync is on'); }
@@ -289,7 +409,7 @@ document.getElementById('import-file').addEventListener('change', async e=>{
   if(!v.ok){ toast(v.error); return; }
   const have = Object.keys(state.logs).length;
   if(have && !confirm(`Replace everything on this device (${doneCount(state.logs)} sessions done) with the backup${v.exportedAt?' from '+fmtLong(v.exportedAt):''} (${doneCount(v.logs)} sessions done)? This cannot be undone.`)) return;
-  state.logs = v.logs; state.settings = Object.assign({version:'gym'}, v.settings); state.openId = null;
+  state.logs = v.logs; state.settings = normSettings(v.settings); state.openId = null; state.planCycle = null; state.picker = false; refreshPlan();
   const ok = await flush(); render(); toast(ok ? 'Backup restored' : 'Could not save the restored data');
 });
 
@@ -374,13 +494,14 @@ window.addEventListener('pagehide', ()=>{ if(lt) flush(); });
 (async function boot(){
   try{
     const d = await loadAll();
-    state.logs = d.logs; state.settings = Object.assign(state.settings, d.settings); state.meta = d.meta;
+    state.logs = d.logs; state.settings = Object.assign(state.settings, d.settings); state.meta = d.meta; refreshPlan();
     await initSync({
       getData: ()=>({logs:state.logs, settings:state.settings}),
       onChange: ()=>{ setSync(syncLabel()); if(state.tab==='progress' && document.activeElement?.id!=='gh-token') render(); }
     });
     setSync(syncLabel());
   }catch(e){ setSync('Storage unavailable: changes will not be kept'); }
+  refreshPlan();
   render();
   requestPersist();
   initSW();

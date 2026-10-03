@@ -141,3 +141,18 @@ nav.tabs button[aria-current="page"]{color:var(--ink);border-top-color:var(--red
 .backup-actions .btn{font-size:16px;padding:12px 10px}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 input[type=password]{width:100%;border:1.5px solid var(--line);background:var(--paper);border-radius:8px;padding:9px 10px;font-size:16px}
+/* cycles */
+.cyc{display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:15px;color:var(--steel)}
+.cyc span{flex:1}
+.cyc button{border:1.5px solid var(--line);background:var(--surface);border-radius:8px;width:40px;height:36px;font-size:20px;line-height:1;cursor:pointer}
+.cyc button:disabled{opacity:.35;cursor:default}
+.progs{display:grid;gap:10px;margin:12px 0}
+.prog{display:flex;flex-direction:column;gap:2px;text-align:left;border:2px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 14px;cursor:pointer}
+.prog b{font-family:var(--display);font-weight:700;font-size:20px}
+.prog small{font-size:13px;color:var(--steel)}
+.prog span{font-size:15px}
+.prog[aria-checked="true"]{border-color:var(--red);box-shadow:inset 6px 0 0 var(--red)}
+.note.last{color:var(--ink);opacity:.8}
+.hist{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
+.hist:first-child{border-top:0;padding-top:2px}
+.hist .btn.link{flex:none}
