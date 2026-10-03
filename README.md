@@ -11,6 +11,24 @@ It runs entirely on your phone. There are no accounts, no server, and it works i
 2. Tap **Share** (the square with the arrow), then **Add to Home Screen**, then **Add**.
 3. Open it from the home-screen icon once while you're online. After that it works fully offline.
 
+## Cycles and programs
+
+The app runs in 12-week **cycles**. When you finish one, or tap **Start the next cycle early** on the Plan tab, you pick what to run next:
+
+| Program | Per week | For |
+|---|---|---|
+| Fireground Hybrid | 5 + 1 optional | The original: balanced strength and conditioning |
+| Strength block | 5 + 1 optional | Three heavier lifting days with lower reps |
+| Engine block | 6 | Intervals, threshold work and long zone 2, with two shorter lifts |
+| Fireground test prep | 5 + 1 optional | CPAT, academy or department tests: event circuit and simulations |
+| Shift-season maintenance | 3 + 1 optional | Holding your fitness through busy stretches |
+
+- **Rotation:** main lifts and accessories rotate to a new variation each cycle, for example back squat, then front squat, then safety-bar squat, then back to the start. Fireground circuits stay the same so the benchmark keeps comparing.
+- **Baseline:** if you finished last cycle's week 12 tests, the new cycle skips the week 1 tests and uses those results as its starting numbers.
+- **Interval days:** choose **Bike**, **Stair climber** or **Run**. It's the same workout either way, and the app remembers your choice.
+- **History:** every lift shows **Last time** (from any earlier week or cycle). The Plan tab can step back through old cycles, and Progress shows every cycle plus all-time bests.
+- **Nothing is ever replaced.** Every cycle's log is kept, and it's included in exports and auto-sync.
+
 ## Auto-sync (recommended)
 
 Turn this on once and you never need to back up by hand. After every save, the app uploads your log to a **private gist** on your GitHub account. GitHub keeps every version, so you can always roll back.
@@ -46,7 +64,7 @@ Plain HTML, CSS and ES modules with no build step:
 ```
 index.html             app shell
 css/app.css            styles (design tokens, light/dark)
-js/program.js          the 12-week plan (data only)
+js/program.js          the program library: session builders, rotations, cycles (data only)
 js/storage.js          IndexedDB storage, backup validation
 js/sync.js             auto-sync to a private GitHub Gist
 js/app.js              views, logging, rest timer, wake lock, update banner
