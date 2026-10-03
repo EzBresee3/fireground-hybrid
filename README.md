@@ -29,6 +29,18 @@ The app runs in 12-week **cycles**. When you finish one, or tap **Start the next
 - **History:** every lift shows **Last time** (from any earlier week or cycle). The Plan tab can step back through old cycles, and Progress shows every cycle plus all-time bests.
 - **Nothing is ever replaced.** Every cycle's log is kept, and it's included in exports and auto-sync.
 
+## Coaching tips
+
+The plan never rewrites itself, but the app reads what you log and adds short tips:
+
+- **Lifts:** if you hit every rep and rated the session 6 or lower, or beat the target by 2+ reps, it suggests more weight (+10–20 lb for squats and deadlifts, +5–10 lb for presses and rows). If you missed reps on a hard day, it suggests repeating the weight or dropping about 10%. When today has more reps than last time, it estimates a starting weight.
+- **New lift this cycle:** the starting weight comes from the lift it replaced (for example, front squat from your back squat).
+- **Bodyweight:** if you beat the target easily, it suggests a harder variation. If you struggled, an easier one.
+- **Intervals, runs and circuits:** two hard sessions that felt easy, two that felt maxed out, easy days that felt hard, or going much longer than planned at an easy effort each trigger a tip.
+- **No tips on deload or test weeks.** Those are easy on purpose, and they're never used as evidence.
+
+Tips use your load, your reps (type them like `10,10,9`), your time, and the **How hard was it?** rating, so log those for the best suggestions.
+
 ## Auto-sync (recommended)
 
 Turn this on once and you never need to back up by hand. After every save, the app uploads your log to a **private gist** on your GitHub account. GitHub keeps every version, so you can always roll back.
@@ -67,6 +79,7 @@ css/app.css            styles (design tokens, light/dark)
 js/program.js          the program library: session builders, rotations, cycles (data only)
 js/storage.js          IndexedDB storage, backup validation
 js/sync.js             auto-sync to a private GitHub Gist
+js/coach.js            coaching tips from your logged sessions
 js/app.js              views, logging, rest timer, wake lock, update banner
 sw.js                  service worker (cache-first app shell)
 manifest.webmanifest   install metadata
