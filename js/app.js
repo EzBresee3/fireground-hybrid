@@ -1,5 +1,6 @@
 import { PH, PH_NAME, PH_NOTE, WARM, VNAME, MODES, PROGRAMS, CODE_NAME, DEFAULT_CYCLE, planFor, cycleOf } from './program.js';
 import { loadAll, set, setMany, requestPersist, buildExport, validateImport } from './storage.js';
+import { liftTip, sessionTip } from './coach.js';
 import { initSync, markDirty, pushNow, connect, useRemote, keepLocal, disconnect, status as syncStatus } from './sync.js';
 
 /* ---------------- State and storage ---------------- */
@@ -23,6 +24,8 @@ function findSession(id){
   const c = cycles().find(x=>x.n===cycleOf(id));
   return c ? planFor(c).find(s=>s.id===id) || null : null;
 }
+const coachCtx = () => ({logs:state.logs, cycles:cycles()});
+const tipHtml = t => t ? `<div class="tip ${t.dir}">${esc(t.text)}</div>` : '';
 const MODE_DONE = {bike:'on the bike', stairs:'on the stair climber', run:'running'};
 
 /* Most recent earlier log of the same exercise, this cycle or any before it. */
@@ -83,6 +86,7 @@ function sessionView(s, isNext){
   h += `<h1>${esc(sm ? sm.title : s.title)}</h1><div class="trim" aria-hidden="true"></div>`;
   h += `<div class="meta"><span>About ${s.minutes} min</span><span>${PH_NAME[PH(s.week)]}</span></div>`;
   h += `<p>${esc(sm ? sm.focus : s.focus)}</p>`;
+  h += tipHtml(sessionTip(coachCtx(), s));
   if(log.done) h += `<div class="done-note"><div class="trim thin" aria-hidden="true"></div><span>Done ${log.date?fmtDate(log.date):''}${log.version&&s.versions?' with '+VNAME[log.version]:''}${log.mode&&s.modes?' '+MODE_DONE[log.mode]:''}</span></div>`;
   if(s.modes){
     h += `<div class="seg" role="group" aria-label="Machine">${Object.keys(MODES).map(k=>`<button data-mode="${k}" aria-pressed="${k===md}">${MODES[k]}</button>`).join('')}</div>`;
@@ -98,7 +102,7 @@ function sessionView(s, isNext){
   list.forEach(x=>{
     const key = v+':'+slug(x.name);
     const iv = (log.items||{})[key] || {};
-    h += `<li class="item"><span class="lab">${esc(x.lab)}</span><div><div class="nm">${esc(x.name)}</div><div class="rx">${esc(x.rx)}</div>${x.note?`<div class="note">${esc(x.note)}</div>`:''}${x.log ? lastLine(s, v, key) : ''}</div>`;
+    h += `<li class="item"><span class="lab">${esc(x.lab)}</span><div><div class="nm">${esc(x.name)}</div><div class="rx">${esc(x.rx)}</div>${x.note?`<div class="note">${esc(x.note)}</div>`:''}${x.log ? lastLine(s, v, key) + tipHtml(liftTip(coachCtx(), s, x, v)) : ''}</div>`;
     if(x.log) h += `<div class="inputs"><label class="f">Load<input type="text" inputmode="decimal" data-f="items|${key}|load" value="${esc(iv.load)}" placeholder="${v==='bw'?'bodyweight':'lb'}"></label><label class="f">Reps done<input type="text" data-f="items|${key}|reps" value="${esc(iv.reps)}" placeholder="e.g. 10,10,9"></label></div>`;
     h += `</li>`;
   });

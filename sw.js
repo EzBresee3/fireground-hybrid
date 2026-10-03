@@ -5,7 +5,7 @@ const SHELL = [
   'index.html',
   'manifest.webmanifest',
   'css/app.css',
-  'js/app.js', 'js/program.js', 'js/storage.js', 'js/sync.js',
+  'js/app.js', 'js/program.js', 'js/storage.js', 'js/sync.js', 'js/coach.js',
   'fonts/barlow-400.woff2', 'fonts/barlow-500.woff2', 'fonts/barlow-600.woff2',
   'fonts/barlow-condensed-500.woff2', 'fonts/barlow-condensed-600.woff2', 'fonts/barlow-condensed-700.woff2',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'
