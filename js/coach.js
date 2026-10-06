@@ -37,7 +37,7 @@ export function parseLoad(str){
   const m = /^\s*(\d+(?:\.\d+)?)\s*(?:lb|lbs|s)?\s*$/i.exec(String(str || ''));
   return m ? +m[1] : NaN;
 }
-const LOWER = /squat|deadlift|rdl|lunge|step-up|hip thrust|bridge|hinge|swing/i;
+const LOWER = /squat|deadlift|rdl|lunge|step-up|hip thrust|bridge|hinge|swing|leg press|back extension|pull-through|good morning/i;
 function bump(v, name){
   const lower = LOWER.test(name);
   if(v==='gym') return lower ? [10,20] : [5,10];
@@ -46,21 +46,33 @@ function bump(v, name){
 /* Estimated load for `reps` reps with about 3 in reserve (RPE 7), from a set of `done` reps at `load` (Epley). */
 const loadFor = (load, done, reps) => load * (1 + done/30) / (1 + (reps + 3)/30);
 
+/* The exercise a logged entry was actually done as: its swap ("did") or the planned exercise in its key. */
+const entrySlug = (k, e) => e.did ? slug(e.did) : k.slice(k.indexOf(':')+1);
+
+/* Most recent earlier log of exercise `name` (by what was actually done), this cycle or before. */
+export function findPrev(ctx, s, name, skipLight){
+  const target = slug(name);
+  for(const p of walkBack(ctx, s)){
+    if(skipLight && light(p)) continue;
+    const l = ctx.logs[p.id]; if(!l || !l.items) continue;
+    for(const [k, e] of Object.entries(l.items))
+      if(e && (e.load || e.reps) && entrySlug(k, e)===target) return {p, l, e, k, v:k.slice(0, k.indexOf(':'))};
+  }
+  return null;
+}
+
 function itemIn(p, v, key){ return p.versions && (p.versions[v] || []).find(x=>v+':'+slug(x.name)===key); }
 
-/* Tip for one logged lift in session s (not yet done), version v. */
-export function liftTip(ctx, s, x, v){
+/* Tip for one logged lift in session s (not yet done), version v. `name` is the exercise actually
+   being done (a swap), which keeps the prescription of planned item x. */
+export function liftTip(ctx, s, x, v, name=x.name){
   if(!x.log || light(s) || (ctx.logs[s.id] && ctx.logs[s.id].done)) return null;
   const cur = parseRx(x.rx); if(!cur) return null;
-  const key = v+':'+slug(x.name);
 
-  // Most recent non-light session with this exercise logged
-  let prev = null;
-  for(const p of walkBack(ctx, s)){
-    const l = ctx.logs[p.id], e = l && l.items && l.items[key];
-    if(e && (e.load || e.reps) && !light(p)){ prev = {p, l, e, x:itemIn(p, v, key)}; break; }
-  }
-  if(!prev) return seedTip(ctx, s, x, v, cur);
+  // Most recent non-light session where this exercise was done
+  const prev = findPrev(ctx, s, name, true);
+  if(prev) prev.x = itemIn(prev.p, prev.v, prev.k);
+  if(!prev) return name===x.name ? seedTip(ctx, s, x, v, cur) : null;
 
   const pr = prev.x && parseRx(prev.x.rx), D = parseReps(prev.e.reps), L = parseLoad(prev.e.load), r = prev.l.rpe || null;
   if(!pr || !D.length) return null;
@@ -76,7 +88,7 @@ export function liftTip(ctx, s, x, v){
       if(t < L) return {dir:'info', text:`More reps today than last time (${did}). Start around ${t} lb.`};
     }
     if(hitAll && ((r && r <= 6) || over >= 2)){
-      const [a,b] = bump(v, x.name);
+      const [a,b] = bump(v, name);
       return {dir:'up', text:`Last time looked easy (${did}${eff}). Try ${a===b ? L+a : (L+a)+'–'+(L+b)} lb today.`};
     }
     if(short >= 1 && (!r || r >= 9)){
@@ -100,7 +112,7 @@ function seedTip(ctx, s, x, v, cur){
   for(const p of walkBack(ctx, s)){
     if(p.title!==s.title || light(p) || !p.versions) continue;
     const px = (p.versions[v] || []).find(y=>y.lab===x.lab && y.name!==x.name); if(!px) continue;
-    const l = ctx.logs[p.id], e = l && l.items && l.items[v+':'+slug(px.name)]; if(!e) continue;
+    const l = ctx.logs[p.id], e = l && l.items && l.items[v+':'+slug(px.name)]; if(!e || (e.did && slug(e.did)!==slug(px.name))) continue;
     const L = parseLoad(e.load), D = parseReps(e.reps); if(isNaN(L) || !D.length) continue;
     const t = round5(0.85 * loadFor(L, mean(D), cur.reps));
     return {dir:'info', text:`New lift. From your ${px.name.toLowerCase()} (${L} lb × ${e.reps}, cycle ${p.cycle} wk ${p.week}), start around ${t} lb and adjust after the first set.`};

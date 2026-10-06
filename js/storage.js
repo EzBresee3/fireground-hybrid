@@ -1,8 +1,12 @@
 /* ---------------- IndexedDB storage ----------------
    A tiny key-value wrapper (same idea as idb-keyval). One database, one object store.
-   Keys: 'logs'     -> { [sessionId]: {items, fields, notes, rpe, done, skipped, date?, version?, updatedAt} }
+   Keys: 'logs'     -> { [sessionId]: {items, fields, notes, rpe, done, skipped, date?, version?, mode?, swaps?, updatedAt} }
+                         items: {'gym:back-squat': {load, reps, from?, did?}}  (from = planned exercise, did = actually done)
+                         swaps: {'gym:back-squat': 'Leg press' | null}       (this session only; null = keep the planned one)
          'settings' -> { version: 'bw' | 'db' | 'gym', mode: 'bike' | 'stairs' | 'run',
-                         cycles: [{n, program, baseline, startedAt, finishedAt}] }
+                         cycles: [{n, program, baseline, startedAt, finishedAt}],
+                         modeBy: {I|H|R|Z: machine},  // "every time" cardio swaps
+                         swaps: {rules: {'gym:back-squat': {from, to, v}}, custom: {pattern: [names]}} }
          'meta'     -> { firstUse, lastBackup }                                         */
 
 const DB_NAME = 'fireground-hybrid';
@@ -66,7 +70,8 @@ export function buildExport(logs, settings){
 // Cycle 1 ids are w1d1..w12d6; later cycles are prefixed: c2:w1d1, c3:w1d1...
 const ID_RE = /^(c([2-9]|[1-9]\d+):)?w([1-9]|1[0-2])d[1-6]$/;
 const VERSIONS = ['bw','db','gym'];
-const MODES = ['bike','stairs','run'];
+const MODES = ['run','bike','rower','assault','stairs','ruck','swim'];
+const str = x => typeof x === 'string' && x.length <= 200;
 const isObj = o => !!o && typeof o === 'object' && !Array.isArray(o);
 
 /* Returns {ok:true, logs, settings, exportedAt} or {ok:false, error}.
@@ -83,11 +88,20 @@ export function validateImport(data){
     if(log.notes !== undefined && typeof log.notes !== 'string') return {ok:false, error:`Session ${id} has bad notes.`};
     if(log.rpe !== undefined && log.rpe !== null && !(Number.isInteger(log.rpe) && log.rpe>=1 && log.rpe<=10)) return {ok:false, error:`Session ${id} has a bad effort score.`};
     if(log.version !== undefined && !VERSIONS.includes(log.version)) return {ok:false, error:`Session ${id} has an unknown equipment version.`};
-    if(log.mode !== undefined && !MODES.includes(log.mode)) return {ok:false, error:`Session ${id} has an unknown interval machine.`};
+    if(log.mode !== undefined && !MODES.includes(log.mode)) return {ok:false, error:`Session ${id} has an unknown cardio machine.`};
+    if(log.swaps !== undefined && !(isObj(log.swaps) && Object.values(log.swaps).every(x=>x===null || str(x)))) return {ok:false, error:`Session ${id} has unreadable exercise swaps.`};
+    if(log.items && !Object.values(log.items).every(e=>isObj(e) && (e.did===undefined || str(e.did)) && (e.from===undefined || str(e.from)))) return {ok:false, error:`Session ${id} has bad lift entries.`};
   }
   const settings = isObj(data.settings) ? data.settings : {};
   if(settings.version !== undefined && !VERSIONS.includes(settings.version)) return {ok:false, error:'The backup has an unknown equipment setting.'};
   if(settings.mode !== undefined && !MODES.includes(settings.mode)) return {ok:false, error:'The backup has an unknown interval machine setting.'};
+  if(settings.modeBy !== undefined && !(isObj(settings.modeBy) && Object.values(settings.modeBy).every(m=>MODES.includes(m)))) return {ok:false, error:'The backup has an unknown cardio machine setting.'};
+  if(settings.swaps !== undefined){
+    const w = settings.swaps;
+    const okRules = isObj(w) && (w.rules===undefined || (isObj(w.rules) && Object.entries(w.rules).every(([k,r])=>/^(bw|db|gym):/.test(k) && isObj(r) && str(r.from) && str(r.to))));
+    const okCustom = isObj(w) && (w.custom===undefined || (isObj(w.custom) && Object.values(w.custom).every(a=>Array.isArray(a) && a.every(str))));
+    if(!okRules || !okCustom) return {ok:false, error:'The backup has unreadable exercise swaps.'};
+  }
   if(settings.cycles !== undefined){
     const c = settings.cycles;
     if(!Array.isArray(c) || !c.length || !c.every((x,i)=> isObj(x) && x.n===i+1 && typeof x.program==='string'))
