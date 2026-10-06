@@ -21,7 +21,7 @@
 <body>
 <div class="statusbar" aria-hidden="true"></div>
 <div class="wrap">
-  <header class="top"><span class="brand">Fireground Hybrid</span><span class="sync" id="sync">Saved on this device</span></header>
+  <header class="top"><span class="brand">Fireground Hybrid</span><span class="top-r"><span class="sync" id="sync">Saved on this device</span><button class="gear" id="open-settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.5 7.5 0 0 0-1.7-1l-.4-2.6h-4l-.4 2.6a7.5 7.5 0 0 0-1.7 1l-2.5-1-2 3.5L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.5 7.5 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.5 7.5 0 0 0 1.7-1l2.5 1 2-3.5zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></button></span></header>
   <main id="app"></main>
 </div>
 <nav class="tabs" aria-label="Sections"><div class="in">
@@ -32,6 +32,7 @@
 <button class="update" id="update" hidden>Update available, tap to reload</button>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="flash" id="flash" aria-hidden="true"></div>
+<div class="sheet-wrap" id="sheet" hidden><div class="sheet-backdrop"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><div class="sheet-grip" aria-hidden="true"></div><div id="sheet-body"></div></div></div>
 <input type="file" id="import-file" class="vh" accept="application/json,.json" tabindex="-1" aria-hidden="true">
 <script type="module" src="js/app.js"></script>
 </body>
