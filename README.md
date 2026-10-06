@@ -29,6 +29,14 @@ The app runs in 12-week **cycles**. When you finish one, or tap **Start the next
 - **History:** every lift shows **Last time** (from any earlier week or cycle). The Plan tab can step back through old cycles, and Progress shows every cycle plus all-time bests.
 - **Nothing is ever replaced.** Every cycle's log is kept, and it's included in exports and auto-sync.
 
+## Swapping exercises and sessions
+
+- **One exercise:** tap **Swap** on any exercise. Alternatives with the same movement pattern are grouped by equipment, with your session's equipment first. **Add your own** saves a custom exercise for that pattern. Then pick **Just today** or **Every time**; every-time swaps apply to all future sessions with that exercise on that equipment. Sets, reps and effort never change. A swapped row shows *Swapped from …* with **Undo**.
+- **A cardio session:** tap **Swap session** to do it on a run, stationary bike, rower, assault bike, stair climber, incline walk (ruck) or swim. The structure and times stay the same, and "hard" still means about RPE 8. Choose **Just today** or **Every time** (for that type of day).
+- **A strength or fireground session:** **Swap session** switches this one session to Bodyweight, DB / KB or Full gym without changing your default.
+- **My swaps:** the gear icon in the header opens Settings, which lists every every-time swap, cardio machine and custom exercise, each with Delete.
+- **History is safe:** each logged lift records both the planned exercise and the one you did, and finished sessions keep their swaps even if you delete the rule later. Progress tracks the lift you actually did, marked "swapped".
+
 ## Coaching tips
 
 The plan never rewrites itself, but the app reads what you log and adds short tips:
@@ -80,6 +88,7 @@ js/program.js          the program library: session builders, rotations, cycles 
 js/storage.js          IndexedDB storage, backup validation
 js/sync.js             auto-sync to a private GitHub Gist
 js/coach.js            coaching tips from your logged sessions
+js/exercises.js        exercise library: movement patterns, equipment, alternatives, cardio machines
 js/app.js              views, logging, rest timer, wake lock, update banner
 sw.js                  service worker (cache-first app shell)
 manifest.webmanifest   install metadata
