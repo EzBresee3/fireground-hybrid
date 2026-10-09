@@ -35,8 +35,11 @@ async function tx(mode, fn){
   });
 }
 export const get = key => tx('readonly', s => s.get(key));
-export const set = (key, val) => tx('readwrite', s => { s.put(val, key); });
-export const setMany = entries => tx('readwrite', s => { for(const [k,v] of entries) s.put(v, k); });
+/* Values are copied when set/setMany is called, not when the database is ready, so later in-memory
+   changes (like a cycle delete that is still inside its Undo window) can never leak into a save. */
+const snap = v => typeof structuredClone === 'function' ? structuredClone(v) : JSON.parse(JSON.stringify(v));
+export const set = (key, val) => { const v = snap(val); return tx('readwrite', s => { s.put(v, key); }); };
+export const setMany = entries => { const copies = entries.map(([k,v])=>[k, snap(v)]); return tx('readwrite', s => { for(const [k,v] of copies) s.put(v, k); }); };
 
 /* Load everything the app needs. Migrates the old single-file localStorage data once, if present. */
 export async function loadAll(){
