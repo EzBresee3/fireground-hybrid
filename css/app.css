@@ -190,3 +190,14 @@ body.sheet-open{overflow:hidden}
 .own .btn{padding:9px 16px;font-size:16px}
 .sh-actions{display:flex;flex-direction:column;gap:10px;margin-top:14px}
 .sh-actions .btn small{display:block;font-weight:500;font-size:13px;opacity:.8;margin-top:2px}
+/* delete cycle */
+.danger-zone{margin-top:28px;padding-top:14px;border-top:1px solid var(--line)}
+.btn.link.danger{color:var(--red)}
+.btn.danger-fill{background:transparent;border:2px solid var(--red);color:var(--red)}
+.btn.danger-fill:not(:disabled){background:var(--red);color:var(--red-ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.del-sum{background:var(--paper);border-radius:10px;padding:10px 12px;margin:6px 0 10px;line-height:1.5}
+.undo-toast{position:fixed;left:16px;right:16px;max-width:608px;margin:0 auto;bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);border-radius:10px;padding:8px 8px 8px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15px;z-index:11}
+.undo-toast[hidden]{display:none}
+.undo-toast button{border:0;background:var(--trimY);color:#1E2428;font-weight:700;font-size:15px;border-radius:8px;padding:9px 16px;cursor:pointer}
+.seg.two{grid-template-columns:1fr 1fr}

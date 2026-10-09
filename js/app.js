@@ -1,11 +1,11 @@
-import { PH, PH_NAME, PH_NOTE, WARM, VNAME, PROGRAMS, CODE_NAME, DEFAULT_CYCLE, planFor, cycleOf } from './program.js';
+import { PH, PH_NAME, PH_NOTE, WARM, VNAME, PROGRAMS, TYPES, typeOf, CODE_NAME, DEFAULT_CYCLE, planFor, cycleOf } from './program.js';
 import { PATTERNS, CARDIO, CARDIO_DAY, alternatives, patternOf, cardioAs, nativeMode } from './exercises.js';
 import { loadAll, set, setMany, requestPersist, buildExport, validateImport } from './storage.js';
 import { liftTip, sessionTip, findPrev } from './coach.js';
 import { initSync, markDirty, pushNow, connect, useRemote, keepLocal, disconnect, status as syncStatus } from './sync.js';
 
 /* ---------------- State and storage ---------------- */
-const state = {logs:{}, settings:{version:'gym', mode:'bike', cycles:[{...DEFAULT_CYCLE}]}, meta:{}, tab:'today', openId:null, planCycle:null, picker:false, pick:null, screen:null};
+const state = {logs:{}, settings:{version:'gym', mode:'bike', cycles:[{...DEFAULT_CYCLE}]}, meta:{}, tab:'today', openId:null, planCycle:null, picker:false, pick:null, pickType:null, screen:null};
 const normSettings = s => Object.assign({version:'gym', mode:'bike'}, s || {});
 
 /* ---------------- Cycles ----------------
@@ -13,15 +13,62 @@ const normSettings = s => Object.assign({version:'gym', mode:'bike'}, s || {});
    state.logs forever (cycle 1 ids are w1d1..., later cycles c2:w1d1...), so nothing is ever replaced. */
 let PLAN = [], BY_ID = {}, REQUIRED = [];
 const cycles = () => state.settings.cycles;
-const curCycle = () => cycles()[cycles().length-1];
+const curCycle = () => cycles()[cycles().length-1] || null;   // the active cycle is the last one; null when every cycle was deleted
 const progOf = c => PROGRAMS[c.program] || PROGRAMS.hybrid;
 const cycleLabel = c => `Cycle ${c.n} · ${progOf(c).name}`;
 function refreshPlan(){
-  if(!Array.isArray(state.settings.cycles) || !state.settings.cycles.length) state.settings.cycles = [{...DEFAULT_CYCLE}];
+  if(!Array.isArray(state.settings.cycles)) state.settings.cycles = [{...DEFAULT_CYCLE}];   // older saves; an empty list means every cycle was deleted
   // The old bike / stairs / run switch on interval days becomes an "every time" machine for interval and threshold days.
   if(!state.settings.modeBy){ const m = state.settings.mode; state.settings.modeBy = m && m!=='bike' ? {I:m, H:m} : {}; }
   if(!state.settings.swaps) state.settings.swaps = {rules:{}, custom:{}};
-  PLAN = planFor(curCycle()); BY_ID = Object.fromEntries(PLAN.map(s=>[s.id,s])); REQUIRED = PLAN.filter(s=>!s.optional);
+  PLAN = curCycle() ? planFor(curCycle()) : []; BY_ID = Object.fromEntries(PLAN.map(s=>[s.id,s])); REQUIRED = PLAN.filter(s=>!s.optional);
+}
+
+/* ---------------- Deleting a cycle ----------------
+   The cycle and its logs leave the screen at once but stay saved (flush and sync write them back)
+   until the 10-second Undo runs out. Closing the app before then cancels the delete.            */
+let pendingDelete = null;   // {cycle, logs, timer}
+const persistLogs = () => pendingDelete ? {...state.logs, ...pendingDelete.logs} : state.logs;
+const persistSettings = () => pendingDelete ? {...state.settings, cycles:[...cycles(), pendingDelete.cycle].sort((a,b)=>a.n-b.n)} : state.settings;
+const cycleLogIds = n => Object.keys(state.logs).filter(id=>cycleOf(id)===n);
+function deleteCycle(n){
+  commitDelete();
+  const cs = cycles(), cycle = cs.find(c=>c.n===n); if(!cycle) return;
+  const logs = {};
+  for(const id of cycleLogIds(n)){ logs[id] = state.logs[id]; delete state.logs[id]; }
+  cs.splice(cs.indexOf(cycle), 1);
+  if(state.openId && cycleOf(state.openId)===n) state.openId = null;
+  if(state.planCycle===n) state.planCycle = null;
+  state.picker = false;
+  pendingDelete = {cycle, logs, timer: setTimeout(commitDelete, 10000)};
+  refreshPlan(); render(); window.scrollTo(0,0);
+  undoToast(`Cycle ${n} deleted`);
+}
+function undoDelete(){
+  if(!pendingDelete) return;
+  const {cycle, logs, timer} = pendingDelete; clearTimeout(timer); pendingDelete = null;
+  Object.assign(state.logs, logs);
+  cycles().push(cycle); cycles().sort((a,b)=>a.n-b.n);
+  hideUndoToast(); refreshPlan(); render(); toast(`Cycle ${cycle.n} restored`);
+}
+/* Make a pending delete permanent: when the Undo runs out, or before anything else changes the cycle list. */
+function commitDelete(){
+  if(!pendingDelete) return;
+  clearTimeout(pendingDelete.timer); pendingDelete = null; hideUndoToast(); flush();
+}
+function undoToast(msg){
+  const el = document.getElementById('undo-toast');
+  document.getElementById('undo-msg').textContent = msg; el.hidden = false;
+}
+function hideUndoToast(){ document.getElementById('undo-toast').hidden = true; }
+document.getElementById('undo-btn').addEventListener('click', undoDelete);
+function cycleSummary(c){
+  const plan = planFor(c), ids = cycleLogIds(c.n);
+  const logged = ids.filter(id=>{ const l = state.logs[id]; return l && (l.done || l.skipped || l.rpe || l.notes || Object.keys(l.items||{}).length || Object.keys(l.fields||{}).length); }).length;
+  const dates = plan.map(s=>(state.logs[s.id]||{}).date).filter(Boolean).sort();
+  const from = dates[0] || c.startedAt, to = dates[dates.length-1] || c.finishedAt;
+  const range = from ? `${fmtLong(from)} – ${to && to!==from ? fmtLong(to) : c===curCycle() ? 'now' : fmtLong(from)}` : 'Not started yet';
+  return {logged, done: ids.filter(id=>state.logs[id].done).length, range};
 }
 function findSession(id){
   if(BY_ID[id]) return BY_ID[id];
@@ -49,8 +96,9 @@ const swapRules = () => state.settings.swaps.rules;
 const customEx = () => state.settings.swaps.custom;
 const verOf = log => log.version || state.settings.version;
 const itemByKey = (s, key) => { const v = key.slice(0, key.indexOf(':')); return ((s.versions||{})[v]||[]).find(x=>v+':'+slug(x.name)===key) || null; };
-function swapOf(v, x, log){
+function swapOf(v, x, log, s){
   const key = v+':'+slug(x.name);
+  if(s && s.kind==='test') return {key, name:x.name, how:null};   // tests stay as written so week 1 and week 12 compare
   if(log.swaps && key in log.swaps){ const to = log.swaps[key]; return to ? {key, name:to, how:'today'} : {key, name:x.name, how:'kept'}; }
   const r = !log.done && swapRules()[key];
   return r ? {key, name:r.to, how:'rule'} : {key, name:x.name, how:null};
@@ -60,7 +108,7 @@ function stampItems(s, log, freeze){
   if(!s.versions) return;
   const v = verOf(log);
   for(const x of s.versions[v]){
-    const sw = swapOf(v, x, log);
+    const sw = swapOf(v, x, log, s);
     if(freeze && sw.how==='rule') (log.swaps = log.swaps || {})[sw.key] = sw.name;
     const e = log.items && log.items[sw.key];
     if(e){ e.from = x.name; e.did = sw.name; }
@@ -76,7 +124,7 @@ let lt=null;
 function saveLocal(){ clearTimeout(lt); lt=setTimeout(flush,250); }
 async function flush(){
   clearTimeout(lt); lt=null;
-  try{ await setMany([['logs', state.logs], ['settings', state.settings]]); markDirty(); setSync(syncLabel()); return true; }
+  try{ await setMany([['logs', persistLogs()], ['settings', persistSettings()]]); markDirty(); setSync(syncLabel()); return true; }
   catch(e){ setSync('Not saved: storage error'); return false; }
 }
 function setSync(t){ document.getElementById('sync').textContent=t; }
@@ -132,8 +180,8 @@ function sessionView(s, isNext){
   list.forEach(x=>{
     const key = v+':'+slug(x.name);
     const iv = (log.items||{})[key] || {};
-    const sw = s.versions ? swapOf(v, x, log) : {name:x.name, how:null}, swapped = sw.name!==x.name;
-    const swapBtn = s.versions && patternOf(x.name) ? `<button class="swap" data-swap="${key}" aria-label="Swap ${esc(sw.name)}">Swap</button>` : '';
+    const sw = s.versions ? swapOf(v, x, log, s) : {name:x.name, how:null}, swapped = sw.name!==x.name;
+    const swapBtn = s.versions && s.kind!=='test' && patternOf(x.name) ? `<button class="swap" data-swap="${key}" aria-label="Swap ${esc(sw.name)}">Swap</button>` : '';
     h += `<li class="item"><span class="lab">${esc(x.lab)}</span><div><div class="nm-row"><div class="nm">${esc(sw.name)}</div>${swapBtn}</div><div class="rx">${esc(x.rx)}</div>`;
     h += swapped ? `<div class="note swapped">Swapped from ${esc(x.name)}${sw.how==='rule' ? ' (every time)' : ''} · <button class="linkbtn" data-unswap="${key}">Undo</button></div>` : (x.note ? `<div class="note">${esc(x.note)}</div>` : '');
     h += `${x.log ? lastLine(s, v, sw.name) + tipHtml(liftTip(coachCtx(), s, x, v, sw.name)) : ''}</div>`;
@@ -158,34 +206,47 @@ function sessionView(s, isNext){
 
 function todayView(){
   if(state.openId) return sessionView(findSession(state.openId), false);
+  if(!curCycle()) return pickerView('empty');
   const n = nextSession();
-  if(!n || state.picker) return pickerView(!n);
+  if(!n || state.picker) return pickerView(n ? 'early' : 'complete');
   const wkStart = PLAN.find(s=>s.week===n.week), c = curCycle();
   let h = '';
   if(n.id===wkStart.id){
     h += `<div class="block"><h3>Week ${n.week}: ${PH_NAME[PH(n.week)]}</h3><p class="small muted" style="margin:4px 0 0">${PH_NOTE[PH(n.week)]}</p>`;
-    if(n.week===1 && c.n>1) h += `<p class="small muted" style="margin:8px 0 0">${esc(cycleLabel(c))}. ${c.baseline===false ? `No baseline tests this time: your week 12 results from cycle ${c.n-1} are your starting numbers.` : `Week 1 includes baseline tests.`}</p>`;
+    if(n.week===1 && cycles().length>1) h += `<p class="small muted" style="margin:8px 0 0">${esc(cycleLabel(c))}. ${c.baseline===false ? `No baseline tests this time: your week 12 results from the last cycle are your starting numbers.` : `Week 1 includes baseline tests.`}</p>`;
     h += `</div>`;
   }
   return h + sessionView(n, true);
 }
 
-function pickerView(complete){
-  const c = curCycle(), next = c.n + 1, pick = state.pick || c.program;
-  let h = complete
+const nextCycleN = () => Math.max(0, ...cycles().map(c=>c.n)) + 1;
+/* The program the picker has selected: what was tapped, else the current program if it fits the chosen type, else the type's first. */
+function pickedProgram(){
+  const c = curCycle(), type = state.pickType || (c ? typeOf(c) : 'hybrid');
+  const ofType = Object.keys(PROGRAMS).filter(k=>PROGRAMS[k].type===type);
+  return {type, ofType, pick: ofType.includes(state.pick) ? state.pick : c && ofType.includes(c.program) ? c.program : ofType[0]};
+}
+function pickerView(mode){
+  const c = curCycle(), next = nextCycleN(), {type, ofType, pick} = pickedProgram();
+  let h = mode==='complete'
     ? `<h1>Twelve weeks, done.</h1><div class="trim" aria-hidden="true"></div><p>Every session in cycle ${c.n} is logged or skipped, and it stays in your log for good. Open Progress to compare your numbers.</p>`
+    : mode==='empty'
+    ? `<h1>Start a new cycle</h1><div class="trim" aria-hidden="true"></div><p>There are no cycles in your log. Pick a type and a program to start twelve new weeks.</p>`
     : `<button class="btn link" data-act="cancel-cycle">Back to up next</button><h1>Start the next cycle</h1><div class="trim" aria-hidden="true"></div><p>Anything you haven't done in cycle ${c.n} stays in your log as it is.</p>`;
-  h += `<h2>Pick cycle ${next}</h2><p class="small muted">The main lifts and accessories rotate to new variations every cycle. The fireground circuits stay the same, so your benchmark keeps comparing.</p>`;
-  h += `<div class="progs" role="radiogroup" aria-label="Program">${Object.entries(PROGRAMS).map(([k,p])=>`<button class="prog" role="radio" data-prog="${k}" aria-checked="${k===pick}"><b>${esc(p.name)}</b><small>${esc(p.perWeek)}</small><span>${esc(p.blurb)}</span></button>`).join('')}</div>`;
+  h += `<h2>Pick cycle ${next}</h2>`;
+  h += `<div class="seg two" role="group" aria-label="Cycle type">${Object.entries(TYPES).map(([k,l])=>`<button data-ptype="${k}" aria-pressed="${k===type}">${l}</button>`).join('')}</div>`;
+  h += `<p class="small muted">${type==='hybrid' ? 'Strength and conditioning together. The main lifts and accessories rotate to new variations every cycle; the fireground circuits stay the same, so your benchmark keeps comparing.' : 'Four lifting days, one zone 2 day and an optional short power day. Same 12-week phases, same equipment versions and swaps.'}</p>`;
+  h += `<div class="progs" role="radiogroup" aria-label="Program">${ofType.map(k=>{ const p = PROGRAMS[k]; return `<button class="prog" role="radio" data-prog="${k}" aria-checked="${k===pick}"><b>${esc(p.name)}</b><small>${esc(p.perWeek)}</small><span>${esc(p.blurb)}</span></button>`; }).join('')}</div>`;
   h += `<div class="actions"><button class="btn primary" data-act="start-cycle">Start cycle ${next}</button></div>`;
   return h;
 }
 
 function planView(){
+  if(!curCycle()) return `<h1>12-week plan</h1><div class="trim" aria-hidden="true"></div><p>No cycle yet.</p><div class="actions"><button class="btn primary" data-act="go-start">Start a new cycle</button></div>`;
   const cs = cycles(), vc = cs.find(c=>c.n===state.planCycle) || curCycle(), isCur = vc===curCycle();
   const plan = planFor(vc), i = cs.indexOf(vc);
   const cw = isCur ? currentWeek() : null, nx = isCur ? nextSession() : null;
-  const codes = [...new Set(plan.map(s=>s.code))];
+  const codes = Object.keys(CODE_NAME).filter(k=>plan.some(s=>s.code===k));
   let h = `<h1>12-week plan</h1><div class="trim" aria-hidden="true"></div>`;
   h += `<div class="cyc">${cs.length>1 ? `<button data-cyc="${i>0?cs[i-1].n:''}" ${i>0?'':'disabled'} aria-label="Previous cycle">‹</button>` : ''}<span>${esc(cycleLabel(vc))}${isCur && cs.length>1 ? ' (current)' : ''}</span>${cs.length>1 ? `<button data-cyc="${i<cs.length-1?cs[i+1].n:''}" ${i<cs.length-1?'':'disabled'} aria-label="Next cycle">›</button>` : ''}</div>`;
   h += `<p>Do the days in order and fit them around your shifts; they don't have to land on set weekdays. ${progOf(vc).perWeek}</p>
@@ -199,10 +260,12 @@ function planView(){
     h += `</div></section>`;
   }
   if(isCur && nx) h += `<div class="actions"><button class="btn link" data-act="early-cycle">Start the next cycle early</button></div>`;
+  h += `<div class="danger-zone"><button class="btn link danger" data-act="del-cycle" data-n="${vc.n}">Delete cycle ${vc.n}</button></div>`;
   return h;
 }
 
 function progressView(){
+  if(!curCycle()) return `<h1>Progress</h1><div class="trim" aria-hidden="true"></div><p>No cycle yet. Start one from the Today tab, or import a backup below.</p>` + backupView();
   const done = REQUIRED.filter(s=>isDone(s.id)).length;
   const extra = PLAN.filter(s=>s.optional && isDone(s.id)).length;
   const c = curCycle(), prevC = cycles()[cycles().length-2], hasOpt = PLAN.some(s=>s.optional);
@@ -212,7 +275,7 @@ function progressView(){
   h += `<div class="block"><div class="count">${done} <span class="muted" style="font-size:24px">of ${REQUIRED.length}</span></div><p class="muted" style="margin:4px 0 0">core sessions done${hasOpt ? `, plus ${extra} ${optName}` : ''}. You're in week ${currentWeek()}.</p></div>`;
 
   // Start = week 1 tests, or last cycle's week 12 when this cycle skipped the baseline.
-  const prevPlan = prevC ? planFor(prevC) : null, fromPrev = c.baseline===false && !!prevPlan;
+  const prevPlan = prevC ? planFor(prevC) : null, fromPrev = c.baseline===false && !!prevPlan && typeOf(prevC)===typeOf(c);
   const testIn = (pl, w) => pl.find(s=>s.kind==='test' && s.week===w), benchIn = (pl, w) => pl.find(s=>s.bench && s.week===w);
   const fieldsOf = s => (s && state.logs[s.id] && state.logs[s.id].fields) || {};
   const t1 = fieldsOf(fromPrev ? testIn(prevPlan,12) : testIn(PLAN,1)), t2 = fieldsOf(testIn(PLAN,12));
@@ -221,6 +284,13 @@ function progressView(){
   const b1 = (b1s && state.logs[b1s.id]) || {}, b2 = (b2s && state.logs[b2s.id]) || {};
   const benchName = b2s && b2s.code==='C' ? 'Test simulation' : 'Fireground benchmark';
   const cell = x => (x===undefined||x===null||x==='') ? '<span class="muted">–</span>' : esc(x);
+  if(typeOf(c)==='strength'){
+    const a = strengthResults(fromPrev ? testIn(prevPlan,12) : testIn(PLAN,1)), b = strengthResults(testIn(PLAN,12));
+    const tcell = r => r ? `${esc(r.value)}<div class="note">${esc(r.name)}</div>` : '<span class="muted">–</span>';
+    h += `<h2>Tests</h2><div class="block"><table><thead><tr><th>Test</th><th>${fromPrev?'Start':'Week 1'}</th><th>Week 12</th></tr></thead><tbody>`;
+    h += STRENGTH_TESTS.map(([t,l])=>`<tr><td>${l}</td><td class="num">${tcell(a[t])}</td><td class="num">${tcell(b[t])}</td></tr>`).join('');
+    h += `</tbody></table><p class="small muted" style="margin:8px 0 0">5-rep maxes are estimated from the heaviest set you logged.${fromPrev ? ' Start is your week 12 result from the last cycle.' : ''}</p></div>`;
+  } else
   h += `<h2>Tests</h2><div class="block"><table><thead><tr><th>Test</th><th>${fromPrev?'Start':'Week 1'}</th><th>Week 12</th></tr></thead><tbody>
     <tr><td>1.5-mile run</td><td class="num">${cell(t1.run)}</td><td class="num">${cell(t2.run)}</td></tr>
     <tr><td>Push-ups</td><td class="num">${cell(t1.pushups)}</td><td class="num">${cell(t2.pushups)}</td></tr>
@@ -261,6 +331,21 @@ function progressView(){
   return h;
 }
 
+/* Strength test results for test session s: {squat:{value, name}, ...}. 5RM rows are estimated (Epley) from load × reps. */
+const STRENGTH_TESTS = [['squat','Squat 5RM'],['bench','Bench 5RM'],['dead','Deadlift 5RM'],['pull','Pull-ups'],['push','Push-ups']];
+function strengthResults(s){
+  const out = {}, log = s && state.logs[s.id]; if(!log || !log.items || !s.versions) return out;
+  const v = verOf(log);
+  for(const x of s.versions[v]){
+    const e = log.items[v+':'+slug(x.name)]; if(!e || !x.t) continue;
+    const reps = parseInt(String(e.reps||'').split(/[^\d]+/).filter(Boolean)[0], 10), load = parseFloat(e.load);
+    const perLeg = /per leg/.test(x.rx);
+    if(x.e5 && load && reps) out[x.t] = {value: Math.round(load * (1 + reps/30) / (1 + 5/30)) + ' lb', name: e.did || x.name};
+    else if(reps) out[x.t] = {value: reps + (perLeg ? ' /leg' : ''), name: e.did || x.name};
+  }
+  return out;
+}
+
 function historyView(){
   const cs = cycles(); if(cs.length < 2) return '';
   let h = `<h2>All cycles</h2><div class="block"><ul class="items">`;
@@ -268,8 +353,10 @@ function historyView(){
   for(const c of [...cs].reverse()){
     const plan = planFor(c), req = plan.filter(s=>!s.optional), done = req.filter(s=>isDone(s.id)).length;
     const dates = plan.map(s=>(state.logs[s.id]||{}).date).filter(Boolean).sort();
-    const fin = ((state.logs[(plan.find(s=>s.kind==='test' && s.week===12)||{}).id]||{}).fields)||{};
-    const tests = [fin.run && `1.5 mi ${esc(fin.run)}`, fin.pushups && `${esc(fin.pushups)} push-ups`, fin.pullups && `${esc(fin.pullups)} pull-ups`].filter(Boolean).join(' · ');
+    const finS = plan.find(s=>s.kind==='test' && s.week===12), fin = ((state.logs[(finS||{}).id]||{}).fields)||{};
+    const sr = typeOf(c)==='strength' ? strengthResults(finS) : null;
+    const tests = sr ? STRENGTH_TESTS.filter(([t])=>sr[t]).map(([t,l])=>`${l} ${esc(sr[t].value)}`).join(' · ')
+      : [fin.run && `1.5 mi ${esc(fin.run)}`, fin.pushups && `${esc(fin.pushups)} push-ups`, fin.pullups && `${esc(fin.pullups)} pull-ups`].filter(Boolean).join(' · ');
     h += `<li class="hist"><div><b>${esc(cycleLabel(c))}</b>${c===curCycle() ? ' <span class="small muted">(current)</span>' : ''}<div class="note">${dates.length ? fmtLong(dates[0])+' – '+fmtLong(dates[dates.length-1])+' · ' : ''}${done} of ${req.length} done${tests ? ' · '+tests : ''}</div></div><button class="btn link" data-viewcyc="${c.n}">View</button></li>`;
     for(const s of plan){
       if(s.kind!=='strength') continue;
@@ -292,6 +379,7 @@ function historyView(){
 
 function render(){
   const app = document.getElementById('app');
+  if(state.openId && !findSession(state.openId)) state.openId = null;
   app.innerHTML = state.screen==='settings' ? settingsView()
                 : state.tab==='plan' ? (state.openId ? sessionView(findSession(state.openId), false) : planView())
                 : state.tab==='progress' ? progressView() : todayView();
@@ -318,7 +406,7 @@ document.getElementById('app').addEventListener('input', e=>{
   else if(p[0]==='fields'){ log.fields = log.fields||{}; log.fields[p[1]] = el.value; }
   else if(p[0]==='items'){
     log.items = log.items||{}; const o = log.items[p[1]] || (log.items[p[1]]={}); o[p[2]] = el.value;
-    const x = itemByKey(s, p[1]); if(x){ o.from = x.name; o.did = swapOf(verOf(log), x, log).name; }
+    const x = itemByKey(s, p[1]); if(x){ o.from = x.name; o.did = swapOf(verOf(log), x, log, s).name; }
   }
   log.updatedAt = Date.now(); saveLocal();
 });
@@ -326,7 +414,10 @@ document.getElementById('app').addEventListener('click', async e=>{
   const t = e.target.closest('button'); if(!t) return;
   if(t.dataset.open){ state.openId = t.dataset.open; render(); window.scrollTo(0,0); return; }
   if(t.dataset.prog){ state.pick = t.dataset.prog; render(); return; }
+  if(t.dataset.ptype){ state.pickType = t.dataset.ptype; state.pick = null; render(); return; }
   if(t.dataset.cyc){ const n = +t.dataset.cyc; state.planCycle = n===curCycle().n ? null : n; render(); return; }
+  if(t.dataset.act==='del-cycle'){ openSheet({kind:'delcycle', n:+t.dataset.n, ret:'[data-act="del-cycle"]'}); return; }
+  if(t.dataset.act==='go-start'){ state.tab = 'today'; render(); window.scrollTo(0,0); return; }
   if(t.dataset.viewcyc){ const n = +t.dataset.viewcyc; state.tab = 'plan'; state.openId = null; state.planCycle = n===curCycle().n ? null : n; render(); window.scrollTo(0,0); return; }
   const s = currentSession();
   if(t.dataset.ver){
@@ -337,9 +428,9 @@ document.getElementById('app').addEventListener('click', async e=>{
   }
   if(t.dataset.swap && s){ openSheet({kind:'ex', sid:s.id, key:t.dataset.swap, ret:`[data-swap="${t.dataset.swap}"]`}); return; }
   if(t.dataset.unswap && s){
-    const log = logOf(s.id), x = itemByKey(s, t.dataset.unswap), sw = swapOf(verOf(log), x, log);
+    const log = logOf(s.id), x = itemByKey(s, t.dataset.unswap), sw = swapOf(verOf(log), x, log, s);
     if(sw.how==='rule'){ openSheet({kind:'unrule', sid:s.id, key:sw.key, ret:'.nm'}); return; }
-    delete log.swaps[sw.key]; stampItems(s, log); log.updatedAt = Date.now(); await flush(); render(); toast(`Back to ${swapOf(verOf(log), x, log).name}`); return;
+    delete log.swaps[sw.key]; stampItems(s, log); log.updatedAt = Date.now(); await flush(); render(); toast(`Back to ${swapOf(verOf(log), x, log, s).name}`); return;
   }
   if(t.dataset.delRule){ delete swapRules()[t.dataset.delRule]; await flush(); render(); toast('Swap deleted'); return; }
   if(t.dataset.delMode){ delete state.settings.modeBy[t.dataset.delMode]; await flush(); render(); toast('Machine swap deleted'); return; }
@@ -353,12 +444,12 @@ document.getElementById('app').addEventListener('click', async e=>{
   if(act==='undo-ver' && s){ const l = logOf(s.id); delete l.version; stampItems(s, l); l.updatedAt = Date.now(); await flush(); render(); return; }
   if(act==='reset'){
     if(!confirm('Erase every logged session and test result? This cannot be undone.' + (syncStatus().connected ? '\n\nThe synced copy on GitHub is overwritten too (GitHub keeps older versions).' : ''))) return;
-    state.logs = {}; state.settings.cycles = [{...DEFAULT_CYCLE}]; state.screen = null; state.planCycle = null; state.picker = false; refreshPlan(); await flush();
+    commitDelete(); state.logs = {}; state.settings.cycles = [{...DEFAULT_CYCLE}]; state.screen = null; state.planCycle = null; state.picker = false; refreshPlan(); await flush();
     render(); toast('All logged data erased'); return;
   }
   if(act==='export'){ exportData(); return; }
   if(act==='early-cycle'){ state.tab = 'today'; state.openId = null; state.picker = true; render(); window.scrollTo(0,0); return; }
-  if(act==='cancel-cycle'){ state.picker = false; state.pick = null; render(); window.scrollTo(0,0); return; }
+  if(act==='cancel-cycle'){ state.picker = false; state.pick = null; state.pickType = null; render(); window.scrollTo(0,0); return; }
   if(act==='start-cycle'){ await startCycle(); return; }
   if(act==='import'){ document.getElementById('import-file').click(); return; }
   if(act==='gh-connect'){ connectGitHub(t); return; }
@@ -413,10 +504,20 @@ function closeSheet(){
   const el = ret && document.querySelector(ret); if(el) el.focus();
 }
 function renderSheet(){
+  if(sheet.kind==='delcycle'){
+    const c = cycles().find(x=>x.n===sheet.n), sm = cycleSummary(c);
+    sheetBody.innerHTML = `<h2 id="sheet-title">Delete cycle ${c.n}?</h2>
+      <div class="del-sum"><b>${esc(cycleLabel(c))}</b><div>${esc(sm.range)}</div><div>${sm.logged} session${sm.logged===1?'':'s'} logged${sm.logged ? `, ${sm.done} done` : ''}</div></div>
+      <p class="small">This removes every session log and test result in this cycle. Other cycles, your custom exercises and your every-time swaps stay.</p>
+      <button class="btn ghost" data-sh-export style="width:100%">Export backup first</button>
+      <label class="f" style="margin-top:16px">Type DELETE to confirm<input type="text" id="del-confirm" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" aria-describedby="sheet-title"></label>
+      <div class="sh-actions"><button class="btn danger-fill" data-sh-delcycle disabled>Delete cycle</button><button class="btn link" data-sh="close">Cancel</button></div>`;
+    return;
+  }
   const s = findSession(sheet.sid), log = state.logs[s.id] || {}, v = verOf(log);
   let h = '';
   if(sheet.kind==='ex'){
-    const x = itemByKey(s, sheet.key), cur = swapOf(v, x, log).name, alt = alternatives(x.name, v, customEx(), [cur]);
+    const x = itemByKey(s, sheet.key), cur = swapOf(v, x, log, s).name, alt = alternatives(x.name, v, customEx(), [cur]);
     h += `<h2 id="sheet-title">Swap ${esc(cur)}</h2><p class="small muted">Same sets and reps: ${esc(x.rx)}. ${esc(PATTERNS[alt.pattern])} options, ${VNAME[v]} first.</p>`;
     if(cur!==x.name) h += `<div class="opts"><button class="opt" data-sh-pick="${esc(x.name)}">${esc(x.name)} <small>as planned</small></button></div>`;
     h += alt.groups.map(g=>`<h3 class="sh-group">${esc(g.label)}${g.fits && g.eq!=='custom' ? ` <span class="fits">${VNAME[v]}</span>` : ''}</h3><div class="opts">${g.items.map(n=>`<button class="opt" data-sh-pick="${esc(n)}">${esc(n)}</button>`).join('')}</div>`).join('');
@@ -460,6 +561,11 @@ async function applyExSwap(scope){
 sheetEl.addEventListener('click', async e=>{
   if(e.target.closest('[data-sh="close"]') || e.target.classList.contains('sheet-backdrop')){ closeSheet(); return; }
   const t = e.target.closest('button'); if(!t || !sheet) return;
+  if(t.dataset.shExport!==undefined){ exportData(); return; }
+  if(t.dataset.shDelcycle!==undefined){
+    if(document.getElementById('del-confirm').value.trim()!=='DELETE') return;
+    const n = sheet.n; sheet.ret = null; closeSheet(); deleteCycle(n); return;
+  }
   const s = findSession(sheet.sid);
   if(t.dataset.shPick){ sheet = {...sheet, kind:'scope', to:t.dataset.shPick}; renderSheet(); sheetBody.querySelector('button').focus(); return; }
   if(t.dataset.shScope){ await applyExSwap(t.dataset.shScope); return; }
@@ -481,6 +587,9 @@ sheetEl.addEventListener('click', async e=>{
     stampItems(s, log); log.updatedAt = Date.now(); closeSheet(); await flush(); render(); toast(`${VNAME[nv]} for this session`); return;
   }
 });
+sheetEl.addEventListener('input', e=>{
+  if(e.target.id==='del-confirm') sheetBody.querySelector('[data-sh-delcycle]').disabled = e.target.value.trim()!=='DELETE';
+});
 sheetEl.addEventListener('submit', e=>{
   e.preventDefault(); if(!sheet) return;
   const name = document.getElementById('own-name').value.replace(/[|<>]/g,'').trim().replace(/\s+/g,' ').slice(0, 60); if(!name) return;
@@ -494,10 +603,14 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && sheet) closeShe
 document.getElementById('open-settings').addEventListener('click', ()=>{ state.screen = 'settings'; render(); window.scrollTo(0,0); });
 
 async function startCycle(){
+  commitDelete();
   const c = curCycle(), fin = PLAN.find(s=>s.kind==='test' && s.week===12), now = new Date().toISOString();
-  const next = {n:c.n+1, program: state.pick || c.program, baseline: !(fin && isDone(fin.id)), startedAt: now};
-  c.finishedAt = now; cycles().push(next);
-  state.pick = null; state.picker = false; state.openId = null; state.planCycle = null; state.tab = 'today';
+  const {type, pick} = pickedProgram();
+  // Skip the week-1 tests only when last cycle's week-12 tests are done and comparable (same type).
+  const next = {n:nextCycleN(), program:pick, type, baseline: !(c && typeOf(c)===type && fin && isDone(fin.id)), startedAt: now};
+  if(c) c.finishedAt = now;
+  cycles().push(next);
+  state.pick = null; state.pickType = null; state.picker = false; state.openId = null; state.planCycle = null; state.tab = 'today';
   refreshPlan(); await flush(); render(); window.scrollTo(0,0);
   toast(`Cycle ${next.n} started: ${progOf(next).name}`);
 }
@@ -545,6 +658,7 @@ async function connectGitHub(btn){
   if(!r.found){ toast('Auto-sync is on'); }
   else if(JSON.stringify(r.remote.logs) === JSON.stringify(state.logs)){ await useRemote(); toast('Auto-sync is on'); }
   else if(!hasData(state.logs) || confirm(`Found a synced copy${r.remote.exportedAt ? ' from '+fmtStamp(r.remote.exportedAt) : ''} with ${doneCount(r.remote.logs)} sessions done. This phone has ${doneCount(state.logs)}.\n\nOK: use the synced copy on this phone.\nCancel: keep this phone's data and replace the synced copy.`)){
+    commitDelete();
     state.logs = r.remote.logs; state.settings = normSettings(r.remote.settings); state.openId = null; state.planCycle = null; state.picker = false; refreshPlan();
     try{ await setMany([['logs', state.logs], ['settings', state.settings]]); }catch(e){}
     await useRemote(); toast('Restored from GitHub. Auto-sync is on');
@@ -580,6 +694,7 @@ document.getElementById('import-file').addEventListener('change', async e=>{
   if(!v.ok){ toast(v.error); return; }
   const have = Object.keys(state.logs).length;
   if(have && !confirm(`Replace everything on this device (${doneCount(state.logs)} sessions done) with the backup${v.exportedAt?' from '+fmtLong(v.exportedAt):''} (${doneCount(v.logs)} sessions done)? This cannot be undone.`)) return;
+  commitDelete();
   state.logs = v.logs; state.settings = normSettings(v.settings); state.openId = null; state.planCycle = null; state.picker = false; refreshPlan();
   const ok = await flush(); render(); toast(ok ? 'Backup restored' : 'Could not save the restored data');
 });
@@ -667,7 +782,7 @@ window.addEventListener('pagehide', ()=>{ if(lt) flush(); });
     const d = await loadAll();
     state.logs = d.logs; state.settings = Object.assign(state.settings, d.settings); state.meta = d.meta; refreshPlan();
     await initSync({
-      getData: ()=>({logs:state.logs, settings:state.settings}),
+      getData: ()=>({logs:persistLogs(), settings:persistSettings()}),
       onChange: ()=>{ setSync(syncLabel()); if(state.tab==='progress' && document.activeElement?.id!=='gh-token') render(); }
     });
     setSync(syncLabel());

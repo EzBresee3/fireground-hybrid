@@ -4,7 +4,7 @@
                          items: {'gym:back-squat': {load, reps, from?, did?}}  (from = planned exercise, did = actually done)
                          swaps: {'gym:back-squat': 'Leg press' | null}       (this session only; null = keep the planned one)
          'settings' -> { version: 'bw' | 'db' | 'gym', mode: 'bike' | 'stairs' | 'run',
-                         cycles: [{n, program, baseline, startedAt, finishedAt}],
+                         cycles: [{n, program, type, baseline, startedAt, finishedAt}],  // may be empty
                          modeBy: {I|H|R|Z: machine},  // "every time" cardio swaps
                          swaps: {rules: {'gym:back-squat': {from, to, v}}, custom: {pattern: [names]}} }
          'meta'     -> { firstUse, lastBackup }                                         */
@@ -104,7 +104,8 @@ export function validateImport(data){
   }
   if(settings.cycles !== undefined){
     const c = settings.cycles;
-    if(!Array.isArray(c) || !c.length || !c.every((x,i)=> isObj(x) && x.n===i+1 && typeof x.program==='string'))
+    // Deleted cycles leave gaps, and every cycle can be deleted: numbers only need to increase.
+    if(!Array.isArray(c) || !c.every((x,i)=> isObj(x) && Number.isInteger(x.n) && x.n >= 1 && (i===0 || x.n > c[i-1].n) && typeof x.program==='string' && (x.type===undefined || ['hybrid','strength'].includes(x.type))))
       return {ok:false, error:'The backup has an unreadable list of cycles.'};
   }
   return {ok:true, logs:data.logs, settings, exportedAt: typeof data.exportedAt === 'string' ? data.exportedAt : null};
