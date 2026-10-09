@@ -22,12 +22,16 @@ The app runs in 12-week **cycles**. When you finish one, or tap **Start the next
 | Engine block | 6 | Intervals, threshold work and long zone 2, with two shorter lifts |
 | Fireground test prep | 5 + 1 optional | CPAT, academy or department tests: event circuit and simulations |
 | Shift-season maintenance | 3 + 1 optional | Holding your fitness through busy stretches |
+| **Strength** (Strength type) | 5 + 1 optional | Lower A (squat), Upper A (push), zone 2, Lower B (hinge), Upper B (pull), optional fireground power |
+
+When you start a cycle, pick a **type** first: **Hybrid** (the programs above, unchanged; the old Strength block is listed as Hybrid strength block) or **Strength**. Strength cycles test an estimated 5-rep max on squat, bench and deadlift (max reps on bodyweight), plus max strict pull-ups and push-ups, in weeks 1 and 12. Plan tags: L lower, U upper, Z zone 2, P power, T test.
 
 - **Rotation:** main lifts and accessories rotate to a new variation each cycle, for example back squat, then front squat, then safety-bar squat, then back to the start. Fireground circuits stay the same so the benchmark keeps comparing.
 - **Baseline:** if you finished last cycle's week 12 tests, the new cycle skips the week 1 tests and uses those results as its starting numbers.
 - **Interval days:** choose **Bike**, **Stair climber** or **Run**. It's the same workout either way, and the app remembers your choice.
 - **History:** every lift shows **Last time** (from any earlier week or cycle). The Plan tab can step back through old cycles, and Progress shows every cycle plus all-time bests.
 - **Nothing is ever replaced.** Every cycle's log is kept, and it's included in exports and auto-sync.
+- **Deleting a cycle:** Plan tab → step to the cycle with ‹ › → **Delete cycle** at the very bottom. The sheet shows what will go and offers **Export backup first**. Type `DELETE` to confirm. You then get 10 seconds to **Undo**; the delete is only saved when that runs out, and closing the app before then cancels it. Your custom exercises and every-time swaps stay. If you delete the current cycle, the most recent remaining one becomes current; with none left, the app offers to start a new cycle.
 
 ## Swapping exercises and sessions
 
