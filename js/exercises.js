@@ -5,7 +5,7 @@
 
 export const PATTERNS = {
   'squat':'Squat', 'hinge':'Hinge', 'single-leg':'Single leg', 'h-push':'Horizontal push', 'v-push':'Vertical push',
-  'h-pull':'Horizontal pull', 'v-pull':'Vertical pull', 'carry':'Carry', 'core-rot':'Core: anti-rotation',
+  'h-pull':'Horizontal pull', 'v-pull':'Vertical pull', 'triceps':'Triceps', 'biceps':'Biceps', 'carry':'Carry', 'core-rot':'Core: anti-rotation',
   'core-ext':'Core: anti-extension', 'core-lat':'Core: lateral', 'power':'Power', 'grip':'Grip',
   'full-body':'Full body', 'engine':'Engine', 'stair':'Stair climb', 'drag':'Drag', 'hose':'Hose pull', 'crawl':'Crawl', 'strike':'Strike'
 };
@@ -56,8 +56,11 @@ const T = {
   'Single-arm dumbbell row, 2-second pause':'h-pull|dumbbell+bench/box', 'Dumbbell bent-over row':'h-pull|dumbbell', 'Staggered-stance kettlebell row':'h-pull|kettlebell',
   'Table rows':'h-pull|bodyweight', 'Underhand table rows':'h-pull|bodyweight', 'Towel rows':'h-pull|bodyweight+other',
   'Face pull':'h-pull|cable+band', 'Dumbbell rear-delt fly':'h-pull|dumbbell', 'Prone Y-T-W raise':'h-pull|bodyweight',
+  // arms
+  'Cable triceps pressdown':'triceps|cable', 'Dumbbell skull crusher':'triceps|dumbbell+bench/box', 'Hammer curl':'biceps|dumbbell',
+  'Band pull-apart':'h-pull|band',
   // vertical pull
-  'Pull-ups':'v-pull|pull-up bar', 'Chin-ups':'v-pull|pull-up bar', 'Neutral-grip pull-ups':'v-pull|pull-up bar',
+  'Strict pull-ups':'v-pull|pull-up bar', 'Pull-ups':'v-pull|pull-up bar', 'Chin-ups':'v-pull|pull-up bar', 'Neutral-grip pull-ups':'v-pull|pull-up bar',
   'Pull-ups or table rows':'v-pull|pull-up bar+bodyweight', 'Chin-ups or underhand table rows':'v-pull|pull-up bar+bodyweight',
   // carry
   'Farmer carry':'carry|dumbbell+kettlebell', 'Uneven farmer carry':'carry|dumbbell+kettlebell', 'Front-rack carry':'carry|kettlebell+dumbbell',
@@ -94,6 +97,8 @@ const A = {
   'h-push':['Bench press|barbell+bench/box','Dumbbell bench press|dumbbell+bench/box','Dumbbell floor press|dumbbell','Incline dumbbell press|dumbbell+bench/box','Push-ups|bodyweight','Band push-ups|band','Machine chest press|machine','Cable chest press|cable','Dips|bodyweight+machine'],
   'v-push':['Standing barbell press|barbell','Push press|barbell','Seated dumbbell press|dumbbell+bench/box','Arnold press|dumbbell','Half-kneeling landmine press|barbell','Kettlebell press|kettlebell','Machine shoulder press|machine','Band overhead press|band','Pike push-up|bodyweight'],
   'h-pull':['Chest-supported row|dumbbell+bench/box','One-arm dumbbell row|dumbbell+bench/box','Barbell row|barbell','Seated cable row|cable','Machine row|machine','Kettlebell row|kettlebell','Band row|band','Table rows|bodyweight','Face pull|cable+band'],
+  'triceps':['Cable triceps pressdown|cable','Rope overhead triceps extension|cable','Dumbbell skull crusher|dumbbell+bench/box','Overhead dumbbell triceps extension|dumbbell','Band triceps pressdown|band','Close-grip push-ups|bodyweight','Bench dips|bodyweight+bench/box','Machine dip|machine'],
+  'biceps':['Hammer curl|dumbbell','Dumbbell curl|dumbbell','EZ-bar curl|barbell','Cable curl|cable','Kettlebell curl|kettlebell','Band curl|band','Chin-up hold|pull-up bar','Towel isometric curl|bodyweight+other'],
   'v-pull':['Pull-ups|pull-up bar','Chin-ups|pull-up bar','Lat pulldown|cable+machine','Band-assisted pull-ups|pull-up bar+band','Neutral-grip pulldown|cable','Negative pull-ups|pull-up bar','Band lat pulldown|band','Table rows|bodyweight'],
   'carry':['Farmer carry|dumbbell+kettlebell','Suitcase carry|dumbbell+kettlebell','Trap bar carry|barbell','Front-rack kettlebell carry|kettlebell','Overhead carry|dumbbell+kettlebell','Sandbag bear-hug carry|other','Water-jug carry|other','Loaded backpack carry|other'],
   'core-rot':['Pallof press|cable+band','Band Pallof press|band','Half-kneeling cable chop|cable','Landmine rotation|barbell','Plank shoulder taps|bodyweight','Bird dog|bodyweight','Kettlebell halo|kettlebell','Single-arm plank|bodyweight'],

@@ -241,32 +241,123 @@ function rotate(s, variant){
   return s;
 }
 
+/* ---------------- Strength cycle type ----------------
+   Lower A, Upper A, zone 2, Lower B, Upper B, optional fireground power. Main lifts follow MAIN /
+   MAINBW, accessories ACC, supersets as everywhere else. Tests in weeks 1 and 12 replace day 6.   */
+const LIFT_HOW = 'Superset A1 with A2, resting 60–90 s after each pair. Same with B1 and B2. Finish with C.';
+function liftParts(w){
+  const p=PH(w), light = p==='deload'||p==='test';
+  return {p, m:MAIN[w], mb:MAINBW[w], a:ACC[p], light, C: light ? '2 × ' : '3 × ', min: light ? 20 : 28};
+}
+function lowerA(w){
+  const {m, mb, a, C, min} = liftParts(w);
+  return {kind:'strength', code:'L', title:'Lower A: squat', minutes:min,
+    focus:'Squat strength and single-leg control for stairs, ladders and lifting from the floor with a load.', how:LIFT_HOW,
+    versions:{
+      bw:[it('A1','Bulgarian split squat',mb+' /leg','Rear foot on a chair or couch',true,true), it('A2','Dead bug',C+'8 /side','Low back pressed into the floor'), it('B1','Lateral lunge',a+' /leg'), it('B2','Single-leg RDL',a+' /leg','Slow, hips square'), it('C','Copenhagen plank',C+'20 s /side','Top leg on a chair, short lever to start',false)],
+      db:[it('A1','Goblet squat',m,'',true,true), it('A2','Dead bug',C+'8 /side','Low back pressed into the floor'), it('B1','Dumbbell rear-foot-elevated split squat',a+' /leg','Rear foot on a bench'), it('B2','Dumbbell hip thrust',a,'Shoulders on a bench or couch'), it('C','Copenhagen plank',C+'20 s /side','Top leg on a bench',false)],
+      gym:[it('A1','Back squat',m,'',true,true), it('A2','Dead bug',C+'8 /side','Low back pressed into the floor'), it('B1','Dumbbell rear-foot-elevated split squat',a+' /leg','Rear foot on a bench'), it('B2','Back extension',a,'Hinge at the hips, squeeze the glutes at the top'), it('C','Copenhagen plank',C+'20 s /side','Top leg on a bench',false)]
+    }};
+}
+function upperA(w){
+  const {m, mb, a, C, min} = liftParts(w);
+  return {kind:'strength', code:'U', title:'Upper A: push', minutes:min,
+    focus:'Pressing strength for forcible entry and pushing through doors, balanced with rowing to keep shoulders healthy under SCBA.', how:LIFT_HOW,
+    versions:{
+      bw:[it('A1','Push-ups',mb,'Feet on a chair from week 7',true,true), it('A2','Table rows',a,'Under a sturdy table, body straight'), it('B1','Pike push-up',a), it('B2','Chair dips',a,'Elbows back, shoulders down'), it('C','Prone Y-T-W raise',C+'8 each','Slow, squeeze the shoulder blades',false)],
+      db:[it('A1','Dumbbell floor press',m,'Use a bench if you have one',true,true), it('A2','One-arm dumbbell row',a+' /arm'), it('B1','Standing dumbbell press',a), it('B2','Dumbbell skull crusher',a,'Elbows pointed up, lower to the forehead'), it('C','Band pull-apart',C+'15','Arms straight, squeeze the shoulder blades',false)],
+      gym:[it('A1','Bench press',m,'',true,true), it('A2','Chest-supported row',a), it('B1','Seated dumbbell press',a), it('B2','Cable triceps pressdown',a), it('C','Face pull',C+'15','Pull to the eyes, elbows high',false)]
+    }};
+}
+function lowerB(w){
+  const {m, mb, a, C, min} = liftParts(w), light = PH(w)==='deload'||PH(w)==='test';
+  const carry = (light ? '2' : '3') + ' × 40 m';
+  return {kind:'strength', code:'L', title:'Lower B: hinge', minutes:min,
+    focus:'Deadlift strength and carries for lifting a patient, dragging a hose line and hauling tools up a stairwell.', how:LIFT_HOW,
+    versions:{
+      bw:[it('A1','Single-leg hip thrust',mb+' /leg','Shoulders on a couch or bench',true,true), it('A2','Plank shoulder taps',C+'20 total','Hips still'), it('B1','Single-leg box squat',a+' /leg','Sit to a chair on one leg, stand back up'), it('B2','Loaded backpack carry',carry,'Heavy pack, walk tall'), it('C','Side plank',C+'30 s /side','',false)],
+      db:[it('A1','Dumbbell Romanian deadlift',m,'',true,true), it('A2','Half-kneeling dumbbell halo',C+'8 /direction','Ribs down, slow circles'), it('B1','Heels-elevated goblet squat',a,'Heels on a plate or book'), it('B2','Farmer carry',carry,'Heavy, fast, tall'), it('C','Side plank',C+'30 s /side','',false)],
+      gym:[it('A1','Trap bar deadlift',m,'Or conventional deadlift',true,true), it('A2','Pallof press',C+'10 /side',''), it('B1','Leg press',a,'Full depth you can control'), it('B2','Farmer carry',carry,'Heavy, fast, tall'), it('C','Side plank',C+'30 s /side','',false)]
+    }};
+}
+function upperB(w){
+  const {m, mb, a, C, min} = liftParts(w);
+  return {kind:'strength', code:'U', title:'Upper B: pull', minutes:min,
+    focus:'Pulling strength and grip for hose pulls, victim drags, ladder climbs and hanging on to tools.', how:LIFT_HOW,
+    versions:{
+      bw:[it('A1','Pull-ups or table rows',mb,'Rows under a sturdy table if no bar',true,true), it('A2','Decline push-ups',a,'Feet on a chair'), it('B1','Towel rows',a,'Towel round a pole or door handle, lean back'), it('B2','Prone Y-T-W raise',a+' total','Slow, squeeze the shoulder blades',false), it('C','Dead hang',C+'max hold (cap 60 s)','A bar, a tree branch or a sturdy beam',false)],
+      db:[it('A1','Single-arm dumbbell row',m+' /arm','',true,true), it('A2','Dumbbell incline press',a,'Bench on an incline, or floor press'), it('B1','Dumbbell rear-delt fly',a), it('B2','Hammer curl',a), it('C','Farmer hold',C+'30 s','Heaviest dumbbells you can hold, stand tall',false)],
+      gym:[it('A1','Pull-ups',m,'Band or lat pulldown if needed; add weight once 10 reps is easy',true,true), it('A2','Dumbbell incline press',a), it('B1','Seated cable row',a), it('B2','Hammer curl',a), it('C','Dead hang',C+'max hold (cap 60 s)','Grip for tools and hose',false)]
+    }};
+}
+function zone2(w){
+  const min = {base:20, build:25, peak:25, deload:20, test:20}[PH(w)];
+  return {kind:'cardio', code:'Z', title:'Zone 2 and mobility', minutes:min+5,
+    focus:'The one cardio day: easy aerobic work that helps you recover between lifting days. Keep it conversational.',
+    steps:[it('1','Zone 2',min+' min easy bike or run','Nose breathing, talk in full sentences',false), it('2','Mobility','5 min','Hip flexor stretch, 90/90 hips, thoracic rotations, child’s pose',false)],
+    fields:cardioFields};
+}
+function power(w){
+  const p = PH(w), dl = p==='deload';
+  const rounds = {base:'3 rounds', build:'4 rounds', peak:'4 rounds, as fast and crisp as you can', deload:'2 easy rounds', test:'2 easy rounds'}[p];
+  return {kind:'hybrid', code:'P', title:'Fireground power', minutes: dl ? 12 : 18,
+    focus: rounds+', resting 60–90 s between rounds. Fast, explosive reps; stop each set before you slow down. Kept short so it doesn’t eat into your recovery.',
+    how:'Full recovery matters more than the clock here: power work only counts when it’s fast.',
+    versions:{
+      bw:[it('1','Broad jumps','4','Stick each landing',false), it('2','Squat jumps','6','Land soft',false), it('3','Bear crawl','20 m','',false), it('4','Burpees','6','Explode up',false)],
+      db:[it('1','Squat jumps','5','Land soft, reset each rep',false), it('2','Kettlebell swing','12','Snap the hips',false), it('3','Farmer carry','40 m','Heavy and fast',false), it('4','Kettlebell or sandbag slams','8','',false)],
+      gym:[it('1','Box jump','4','Step down, full reset each rep',false), it('2','Kettlebell swing','12','Snap the hips',false), it('3','Sled push','20 m','Or 40 m heavy farmer carry',false), it('4','Med ball slam','8','',false)]
+    }};
+}
+/* Weeks 1 and 12: estimated 5-rep max on the main lifts (gym and DB/KB), max reps on bodyweight.
+   Items carry t (which test row) and e5 (log load + reps for an estimated 5RM).                   */
+function strengthTest(w){
+  const heavy = 'Work up to a heavy set of 5', e5 = (x, t) => ({...x, t, e5:true}), mx = (x, t) => ({...x, t});
+  const pull = mx(it('4','Strict pull-ups','One set, max reps','From a dead hang, no kipping. Table rows if you have no bar'), 'pull');
+  const push = mx(it('5','Push-ups','One set, max reps','Chest to a fist on the floor, no resting at the top'), 'push');
+  return {kind:'test', code:'T', title: w===1 ? 'Strength test: baseline' : 'Strength test: retest', minutes:35,
+    focus: w===1 ? 'Sets your starting numbers. Warm up, then work up in 3–4 sets to a set of 5 you could repeat once more at most. Log the load and reps: the app estimates your 5-rep max even if you got 4 or 7.' : 'Same tests as week 1, same equipment and order. See what twelve weeks did.',
+    how:'Rest 2–3 min between heavy sets. Bodyweight version: one all-out set of the main movement instead of a 5-rep max.',
+    versions:{
+      bw:[mx(it('1','Bulgarian split squat','One set per leg, max reps','Rear foot on a chair'), 'squat'), mx(it('3','Single-leg hip thrust','One set per leg, max reps','Shoulders on a couch'), 'dead'), pull, push],
+      db:[e5(it('1','Goblet squat',heavy,'Or double dumbbell front squat if the goblet is too light'), 'squat'), e5(it('2','Dumbbell floor press',heavy), 'bench'), e5(it('3','Dumbbell Romanian deadlift',heavy), 'dead'), pull, push],
+      gym:[e5(it('1','Back squat',heavy), 'squat'), e5(it('2','Bench press',heavy), 'bench'), e5(it('3','Trap bar deadlift',heavy,'Or conventional deadlift; use the same one in week 12'), 'dead'), pull, push]
+    }};
+}
+
 /* ---------------- Program library ---------------- */
 const opt = s => (s.optional = true, s);
 const PROGRAMS = {
-  hybrid:{name:'Fireground Hybrid', perWeek:'Five sessions a week, plus an optional sixth.',
+  hybrid:{type:'hybrid', name:'Fireground Hybrid', perWeek:'Five sessions a week, plus an optional sixth.',
     blurb:'The original. Two lifting days, intervals, a fireground circuit and a run every week.',
     days: w => [strengthA(w), intervals(w), hybrid(w), run(w), strengthB(w), day6(w)]},
-  strength:{name:'Strength block', perWeek:'Five sessions a week, plus an optional sixth.',
+  strength:{type:'hybrid', name:'Hybrid strength block', perWeek:'Five sessions a week, plus an optional sixth.',
     blurb:'Three heavier lifting days with lower reps, plus intervals and a fireground circuit to keep the engine running.',
     days: w => [withMain(strengthA(w),w,x=>STR[x],x=>STRBW[x]), intervals(w), withMain(strengthC(w),w,x=>STR[x],x=>STRBW[x]), hybrid(w), withMain(strengthB(w),w,x=>STR[x],x=>STRBW[x]), day6(w)]},
-  engine:{name:'Engine block', perWeek:'Six sessions a week. Day 6 is a long, easy one.',
+  engine:{type:'hybrid', name:'Engine block', perWeek:'Six sessions a week. Day 6 is a long, easy one.',
     blurb:'Conditioning first: intervals, threshold work and a long zone 2 day, with two shorter lifting days to hold your strength.',
     days: w => [withMain(strengthA(w),w,x=>MAINT[PH(x)],x=>MAINTBW[PH(x)]), intervals(w), hybrid(w), threshold(w), withMain(strengthB(w),w,x=>MAINT[PH(x)],x=>MAINTBW[PH(x)]), (w===1||w===12) ? day6(w) : longZone2(w)]},
-  cpat:{name:'Fireground test prep', perWeek:'Five sessions a week, plus an optional sixth.',
+  cpat:{type:'hybrid', name:'Fireground test prep', perWeek:'Five sessions a week, plus an optional sixth.',
     blurb:'For the CPAT, an academy or a department fitness test: an event-by-event test circuit every week and full simulations to finish.',
     days: w => [strengthA(w), intervals(w), cpat(w), run(w), strengthB(w), day6(w)]},
-  maintenance:{name:'Shift-season maintenance', perWeek:'Three sessions a week, plus an optional fourth.',
+  maintenance:{type:'hybrid', name:'Shift-season maintenance', perWeek:'Three sessions a week, plus an optional fourth.',
     blurb:'Three short sessions a week to hold what you’ve built when shifts, overtime or life get busy.',
-    days: w => [withMain(strengthA(w),w,x=>MAINT[PH(x)],x=>MAINTBW[PH(x)]), hybrid(w), withMain(strengthB(w),w,x=>MAINT[PH(x)],x=>MAINTBW[PH(x)]), (w===1||w===12) ? day6(w) : opt(intervals(w))]}
+    days: w => [withMain(strengthA(w),w,x=>MAINT[PH(x)],x=>MAINTBW[PH(x)]), hybrid(w), withMain(strengthB(w),w,x=>MAINT[PH(x)],x=>MAINTBW[PH(x)]), (w===1||w===12) ? day6(w) : opt(intervals(w))]},
+  lift:{type:'strength', name:'Strength', perWeek:'Five sessions a week, plus an optional sixth.',
+    blurb:'Four 20–30 minute lifting days (lower and upper, twice each), one zone 2 day and an optional short fireground power day.',
+    days: w => [lowerA(w), upperA(w), zone2(w), lowerB(w), upperB(w), (w===1||w===12) ? strengthTest(w) : opt(power(w))]}
 };
-const CODE_NAME = {S:'strength', I:'intervals', H:'threshold', F:'fireground', C:'test circuit', R:'run', Z:'zone 2', T:'test'};
+const TYPES = {hybrid:'Hybrid', strength:'Strength'};
+/* A cycle's type; cycles saved before types existed are hybrid. */
+const typeOf = c => (c && c.type) || ((PROGRAMS[c && c.program] || {}).type) || 'hybrid';
+const CODE_NAME = {S:'strength', L:'lower', U:'upper', I:'intervals', H:'threshold', F:'fireground', C:'test circuit', R:'run', Z:'zone 2', P:'power', T:'test'};
 
 /* ---------------- Cycles ----------------
-   A cycle is {n, program, baseline, startedAt, finishedAt}. Cycle 1 keeps the original
+   A cycle is {n, program, type, baseline, startedAt, finishedAt}. n only ever grows (deleted
+   cycles leave gaps). Cycle 1 keeps the original
    session ids (w1d1...); later cycles prefix them (c2:w1d1...), so nothing ever collides.
    baseline:false skips the week-1 tests: the previous cycle's week-12 results are the start. */
-const DEFAULT_CYCLE = {n:1, program:'hybrid', baseline:true};
+const DEFAULT_CYCLE = {n:1, program:'hybrid', type:'hybrid', baseline:true};
 const idFor = (n, w, d) => (n===1 ? '' : 'c'+n+':') + 'w'+w+'d'+d;
 const cycleOf = id => { const m = /^c(\d+):/.exec(id); return m ? +m[1] : 1; };
 const cache = new Map();
@@ -289,4 +380,4 @@ function planFor(c){
   return plan;
 }
 
-export { PH, PH_NAME, PH_NOTE, MAIN, MAINBW, ACC, WARM, VNAME, MODES, PROGRAMS, CODE_NAME, DEFAULT_CYCLE, planFor, cycleOf, idFor };
+export { PH, PH_NAME, PH_NOTE, MAIN, MAINBW, ACC, WARM, VNAME, MODES, PROGRAMS, TYPES, typeOf, CODE_NAME, DEFAULT_CYCLE, planFor, cycleOf, idFor };
