@@ -19,16 +19,20 @@
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
+<div id="app-shell">
 <div class="statusbar" aria-hidden="true"></div>
+<div id="scroller">
 <div class="wrap">
   <header class="top"><span class="brand">Fireground Hybrid</span><span class="top-r"><span class="sync" id="sync">Saved on this device</span><button class="gear" id="open-settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.5 7.5 0 0 0-1.7-1l-.4-2.6h-4l-.4 2.6a7.5 7.5 0 0 0-1.7 1l-2.5-1-2 3.5L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.5 7.5 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.5 7.5 0 0 0 1.7-1l2.5 1 2-3.5zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg></button></span></header>
   <main id="app"></main>
+</div>
 </div>
 <nav class="tabs" aria-label="Sections"><div class="in">
   <button data-tab="today">Today</button>
   <button data-tab="plan">Plan</button>
   <button data-tab="progress">Progress</button>
 </div></nav>
+</div>
 <button class="update" id="update" hidden>Update available, tap to reload</button>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="undo-toast" id="undo-toast" role="status" aria-live="polite" hidden><span id="undo-msg"></span><button id="undo-btn">Undo</button></div>

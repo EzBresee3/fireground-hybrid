@@ -201,3 +201,18 @@ body.sheet-open{overflow:hidden}
 .undo-toast[hidden]{display:none}
 .undo-toast button{border:0;background:var(--trimY);color:#1E2428;font-weight:700;font-size:15px;border-radius:8px;padding:9px 16px;cursor:pointer}
 .seg.two{grid-template-columns:1fr 1fr}
+
+/* ---------------- App shell ----------------
+   The page itself never scrolls. A flex column holds the status-bar strip, one scroll container
+   and the bottom nav, so iOS standalone mode has nothing fixed-position to drag around.          */
+:root{padding-top:0;padding-bottom:0}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+body{min-height:0}
+#app-shell{display:flex;flex-direction:column;height:100vh;height:-webkit-fill-available;height:100dvh;background:var(--paper)}
+.statusbar{position:static;flex:none}
+#scroller{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.wrap{padding-bottom:24px}
+nav.tabs{position:static;flex:none}
+#timer-slot{top:0}
+/* Keyboard open: hide the nav so it can't ride up on top of the keyboard. */
+body.kb nav.tabs{display:none}

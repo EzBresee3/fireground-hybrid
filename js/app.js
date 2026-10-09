@@ -1,12 +1,29 @@
 import { PH, PH_NAME, PH_NOTE, WARM, VNAME, PROGRAMS, TYPES, typeOf, CODE_NAME, DEFAULT_CYCLE, planFor, cycleOf } from './program.js';
-import { PATTERNS, CARDIO, CARDIO_DAY, alternatives, patternOf, cardioAs, nativeMode } from './exercises.js';
+import { PATTERNS, CARDIO, CARDIO_DAY, alternatives, patternOf, tagOf, cardioAs, nativeMode } from './exercises.js';
 import { loadAll, set, setMany, requestPersist, buildExport, validateImport } from './storage.js';
-import { liftTip, sessionTip, findPrev } from './coach.js';
+import { liftTip, sessionTip, findPrev, parseReps } from './coach.js';
 import { initSync, markDirty, pushNow, connect, useRemote, keepLocal, disconnect, status as syncStatus } from './sync.js';
 
 /* ---------------- State and storage ---------------- */
 const state = {logs:{}, settings:{version:'gym', mode:'bike', cycles:[{...DEFAULT_CYCLE}]}, meta:{}, tab:'today', openId:null, planCycle:null, picker:false, pick:null, pickType:null, screen:null};
 const normSettings = s => Object.assign({version:'gym', mode:'bike'}, s || {});
+
+/* ---------------- Scrolling and the keyboard ----------------
+   The page never scrolls; #scroller is the only scroll container (see the app shell in app.css). */
+const scroller = document.getElementById('scroller');
+const toTop = () => { scroller.scrollTop = 0; };
+const isField = el => !!el && (el.tagName==='TEXTAREA' || (el.tagName==='INPUT' && !['button','checkbox','radio','file','submit','range'].includes(el.type)));
+/* iOS scrolls the whole page to keep a focused field above the keyboard; put it back once the keyboard is gone. */
+const resetPage = () => { if(window.scrollX || window.scrollY) window.scrollTo(0, 0); };
+document.addEventListener('focusin', e=>{ if(isField(e.target)) document.body.classList.add('kb'); });
+document.addEventListener('focusout', ()=>setTimeout(()=>{ if(!isField(document.activeElement)){ document.body.classList.remove('kb'); resetPage(); } }, 50));
+if(window.visualViewport) window.visualViewport.addEventListener('resize', ()=>{
+  if(!isField(document.activeElement)) document.body.classList.remove('kb');
+  if(window.visualViewport.height >= window.innerHeight * 0.85) resetPage();   // keyboard closed
+});
+window.addEventListener('scroll', ()=>{ if(!document.body.classList.contains('kb')) resetPage(); }, {passive:true});
+window.addEventListener('orientationchange', ()=>setTimeout(resetPage, 300));
+window.addEventListener('resize', ()=>{ if(!document.body.classList.contains('kb')) resetPage(); });
 
 /* ---------------- Cycles ----------------
    settings.cycles = [{n, program, baseline, startedAt, finishedAt}]. Logs from every cycle stay in
@@ -41,7 +58,7 @@ function deleteCycle(n){
   if(state.planCycle===n) state.planCycle = null;
   state.picker = false;
   pendingDelete = {cycle, logs, timer: setTimeout(commitDelete, 10000)};
-  refreshPlan(); render(); window.scrollTo(0,0);
+  refreshPlan(); render(); toTop();
   undoToast(`Cycle ${n} deleted`);
 }
 function undoDelete(){
@@ -303,12 +320,11 @@ function progressView(){
   PLAN.filter(s=>s.kind==='strength').forEach(s=>{
     const log = state.logs[s.id]; if(!log||!log.items) return;
     ['bw','db','gym'].forEach(v=>s.versions[v].filter(x=>x.main).forEach(x=>{
-      const e = log.items[v+':'+slug(x.name)]; if(!e) return;
-      const n = parseFloat(String(e.load||'').replace(/[^0-9.]/g,''));
-      const nm = e.did || x.name;   // track the exercise actually done
+      const e = log.items[v+':'+slug(x.name)], nm = e && (e.did || x.name);   // track the exercise actually done
+      const rec = liftRecord(e, v, nm, s.week); if(!rec) return;
       const r = best[nm] || (best[nm]={first:null,best:null,swapped: slug(nm)!==slug(x.name)});
-      if(!isNaN(n)){ if(!r.first) r.first={n,w:s.week}; if(!r.best||n>=r.best.n) r.best={n,w:s.week,reps:e.reps}; }
-      else if(e.reps && !r.best){ r.reps = e.reps; r.wk=s.week; }
+      if(!r.first) r.first = rec;
+      if(!r.best || betterLift(rec, r.best)) r.best = rec;
     }));
   });
   const names = Object.keys(best);
@@ -317,7 +333,7 @@ function progressView(){
   else {
     h += `<table><thead><tr><th>Lift</th><th>First</th><th>Best</th></tr></thead><tbody>`;
     names.forEach(n=>{ const r=best[n];
-      h += `<tr><td>${esc(n)}${r.swapped?'<div class="note">swapped</div>':''}</td><td class="num">${r.first?esc(r.first.n)+'<div class="note">wk '+r.first.w+'</div>':'<span class="muted">–</span>'}</td><td class="num">${r.best?esc(r.best.n)+'<div class="note">wk '+r.best.w+(r.best.reps?', '+esc(r.best.reps):'')+'</div>':(r.reps?esc(r.reps)+'<div class="note">wk '+r.wk+'</div>':'<span class="muted">–</span>')}</td></tr>`; });
+      h += `<tr><td>${esc(n)}${r.swapped?'<div class="note">swapped</div>':''}</td><td class="num">${liftCell(r.first, false)}</td><td class="num">${liftCell(r.best, true)}</td></tr>`; });
     h += `</tbody></table>`;
   }
   h += `</div>`;
@@ -346,6 +362,24 @@ function strengthResults(s){
   return out;
 }
 
+/* ---------------- Lift records for Progress ----------------
+   Bodyweight movements (bodyweight version, or a bodyweight / pull-up-bar exercise) count reps,
+   and a load only means added weight ("BW + 25 lb"). A blank or 0 load on any lift shows reps.  */
+const bodyweightLift = (v, name) => v==='bw' || ['bodyweight','pull-up bar'].includes(((tagOf(name)||{}).eq||[])[0]);
+function liftRecord(e, v, name, week){
+  if(!e) return null;
+  const n = parseFloat(String(e.load||'').replace(/[^0-9.]/g,'')), L = isNaN(n) ? 0 : n, reps = parseReps(e.reps);
+  if(!L && !reps.length) return null;
+  return {L, reps, total: reps.reduce((a,b)=>a+b, 0), w: week, bw: bodyweightLift(v, name)};
+}
+/* Heavier wins; for the same load (or no load), more total reps; a later tie wins. */
+const betterLift = (a, b) => a.L!==b.L ? a.L > b.L : a.total >= b.total;
+const liftValue = r => r.L ? (r.bw ? `BW + ${r.L} lb` : String(r.L)) : `${r.reps.join(', ')} reps`;
+function liftCell(r, withReps){
+  if(!r) return '<span class="muted">–</span>';
+  return `${esc(liftValue(r))}<div class="note">wk ${r.w}${withReps && r.L && r.reps.length ? ', '+esc(r.reps.join(',')) : ''}</div>`;
+}
+
 function historyView(){
   const cs = cycles(); if(cs.length < 2) return '';
   let h = `<h2>All cycles</h2><div class="block"><ul class="items">`;
@@ -363,17 +397,17 @@ function historyView(){
       const log = state.logs[s.id]; if(!log || !log.items) continue;
       for(const v of ['bw','db','gym']) for(const x of s.versions[v]){
         if(!x.main) continue;
-        const e = log.items[v+':'+slug(x.name)]; if(!e) continue;
-        const n = parseFloat(String(e.load||'').replace(/[^0-9.]/g,'')); if(isNaN(n)) continue;
-        const nm = e.did || x.name, r = best[nm];
-        if(!r || n > r.n || (n===r.n && c.n > r.c)) best[nm] = {n, c:c.n, w:s.week, reps:e.reps, swapped: slug(nm)!==slug(x.name)};
+        const e = log.items[v+':'+slug(x.name)], nm = e && (e.did || x.name);
+        const rec = liftRecord(e, v, nm, s.week); if(!rec) continue;
+        const r = best[nm];
+        if(!r || betterLift(rec, r)) best[nm] = {...rec, c:c.n, swapped: slug(nm)!==slug(x.name)};
       }
     }
   }
   h += `</ul></div>`;
   const names = Object.keys(best).sort();
   if(names.length) h += `<h2>All-time bests</h2><div class="block"><table><thead><tr><th>Lift</th><th>Best</th><th>When</th></tr></thead><tbody>${names.map(n=>{ const r = best[n];
-    return `<tr><td>${esc(n)}${r.swapped ? '<div class="note">swapped</div>' : ''}</td><td class="num">${esc(r.n)}</td><td class="small">Cycle ${r.c}, wk ${r.w}${r.reps ? `<div class="note">${esc(r.reps)}</div>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`;
+    return `<tr><td>${esc(n)}${r.swapped ? '<div class="note">swapped</div>' : ''}</td><td class="num">${esc(liftValue(r))}</td><td class="small">Cycle ${r.c}, wk ${r.w}${r.L ? `<div class="note">${esc(r.reps.join(', '))}</div>` : ''}</td></tr>`; }).join('')}</tbody></table></div>`;
   return h;
 }
 
@@ -396,7 +430,7 @@ function currentSession(){
 }
 document.querySelector('nav.tabs').addEventListener('click', e=>{
   const b = e.target.closest('button[data-tab]'); if(!b) return;
-  state.tab = b.dataset.tab; state.openId = null; state.planCycle = null; state.picker = false; state.screen = null; render(); window.scrollTo(0,0);
+  state.tab = b.dataset.tab; state.openId = null; state.planCycle = null; state.picker = false; state.screen = null; render(); toTop();
 });
 document.getElementById('app').addEventListener('input', e=>{
   const el = e.target.closest('[data-f]'); if(!el) return;
@@ -412,13 +446,13 @@ document.getElementById('app').addEventListener('input', e=>{
 });
 document.getElementById('app').addEventListener('click', async e=>{
   const t = e.target.closest('button'); if(!t) return;
-  if(t.dataset.open){ state.openId = t.dataset.open; render(); window.scrollTo(0,0); return; }
+  if(t.dataset.open){ state.openId = t.dataset.open; render(); toTop(); return; }
   if(t.dataset.prog){ state.pick = t.dataset.prog; render(); return; }
   if(t.dataset.ptype){ state.pickType = t.dataset.ptype; state.pick = null; render(); return; }
   if(t.dataset.cyc){ const n = +t.dataset.cyc; state.planCycle = n===curCycle().n ? null : n; render(); return; }
   if(t.dataset.act==='del-cycle'){ openSheet({kind:'delcycle', n:+t.dataset.n, ret:'[data-act="del-cycle"]'}); return; }
-  if(t.dataset.act==='go-start'){ state.tab = 'today'; render(); window.scrollTo(0,0); return; }
-  if(t.dataset.viewcyc){ const n = +t.dataset.viewcyc; state.tab = 'plan'; state.openId = null; state.planCycle = n===curCycle().n ? null : n; render(); window.scrollTo(0,0); return; }
+  if(t.dataset.act==='go-start'){ state.tab = 'today'; render(); toTop(); return; }
+  if(t.dataset.viewcyc){ const n = +t.dataset.viewcyc; state.tab = 'plan'; state.openId = null; state.planCycle = n===curCycle().n ? null : n; render(); toTop(); return; }
   const s = currentSession();
   if(t.dataset.ver){
     state.settings.version = t.dataset.ver;
@@ -437,8 +471,8 @@ document.getElementById('app').addEventListener('click', async e=>{
   if(t.dataset.delCustom){ const [pat, name] = t.dataset.delCustom.split('|'); const l = customEx()[pat] || [], i = l.indexOf(name); if(i>=0) l.splice(i, 1); if(!l.length) delete customEx()[pat]; await flush(); render(); toast('Exercise deleted'); return; }
   if(t.dataset.rpe && s){ const log=logOf(s.id); log.rpe=+t.dataset.rpe; log.updatedAt=Date.now(); render(); saveLocal(); return; }
   const act = t.dataset.act; if(!act) return;
-  if(act==='back'){ state.openId=null; render(); window.scrollTo(0,0); return; }
-  if(act==='close-settings'){ state.screen = null; render(); window.scrollTo(0,0); return; }
+  if(act==='back'){ state.openId=null; render(); toTop(); return; }
+  if(act==='close-settings'){ state.screen = null; render(); toTop(); return; }
   if(act==='swap-session' && s){ openSheet({kind: s.kind==='cardio' ? 'cardio' : 'ver', sid:s.id, ret:'[data-act="swap-session"]'}); return; }
   if(act==='undo-mode' && s){ const l = logOf(s.id); delete l.mode; l.updatedAt = Date.now(); await flush(); render(); return; }
   if(act==='undo-ver' && s){ const l = logOf(s.id); delete l.version; stampItems(s, l); l.updatedAt = Date.now(); await flush(); render(); return; }
@@ -448,8 +482,8 @@ document.getElementById('app').addEventListener('click', async e=>{
     render(); toast('All logged data erased'); return;
   }
   if(act==='export'){ exportData(); return; }
-  if(act==='early-cycle'){ state.tab = 'today'; state.openId = null; state.picker = true; render(); window.scrollTo(0,0); return; }
-  if(act==='cancel-cycle'){ state.picker = false; state.pick = null; state.pickType = null; render(); window.scrollTo(0,0); return; }
+  if(act==='early-cycle'){ state.tab = 'today'; state.openId = null; state.picker = true; render(); toTop(); return; }
+  if(act==='cancel-cycle'){ state.picker = false; state.pick = null; state.pickType = null; render(); toTop(); return; }
   if(act==='start-cycle'){ await startCycle(); return; }
   if(act==='import'){ document.getElementById('import-file').click(); return; }
   if(act==='gh-connect'){ connectGitHub(t); return; }
@@ -461,7 +495,7 @@ document.getElementById('app').addEventListener('click', async e=>{
     if(s.versions){ log.version = verOf(log); stampItems(s, log, true); }
     if(s.kind==='cardio'){ const m = modeOf(s, log); if(m) log.mode = m; }
     log.done = true; log.skipped = false; log.date = new Date().toISOString();
-    const ok = await pushLog(s.id); state.openId = null; state.tab='today'; render(); window.scrollTo(0,0);
+    const ok = await pushLog(s.id); state.openId = null; state.tab='today'; render(); toTop();
     const n = nextSession(); toast((ok?'Marked done.':'Marked done, but saving failed.') + (n?' Up next: '+n.title:''));
   } else if(act==='save'){
     if(s.versions && log.done){ log.version = verOf(log); stampItems(s, log); }
@@ -470,7 +504,7 @@ document.getElementById('app').addEventListener('click', async e=>{
   } else if(act==='undone'){
     log.done = false; await pushLog(s.id); render(); toast('Marked as not done');
   } else if(act==='skip'){
-    log.skipped = true; await pushLog(s.id); state.openId=null; render(); window.scrollTo(0,0); toast('Skipped');
+    log.skipped = true; await pushLog(s.id); state.openId=null; render(); toTop(); toast('Skipped');
   } else if(act==='unskip'){
     log.skipped = false; await pushLog(s.id); render(); toast('Back in the queue');
   }
@@ -600,7 +634,7 @@ sheetEl.addEventListener('submit', e=>{
   sheet = {...sheet, kind:'scope', to: same || name}; renderSheet(); sheetBody.querySelector('button').focus();
 });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape' && sheet) closeSheet(); });
-document.getElementById('open-settings').addEventListener('click', ()=>{ state.screen = 'settings'; render(); window.scrollTo(0,0); });
+document.getElementById('open-settings').addEventListener('click', ()=>{ state.screen = 'settings'; render(); toTop(); });
 
 async function startCycle(){
   commitDelete();
@@ -611,7 +645,7 @@ async function startCycle(){
   if(c) c.finishedAt = now;
   cycles().push(next);
   state.pick = null; state.pickType = null; state.picker = false; state.openId = null; state.planCycle = null; state.tab = 'today';
-  refreshPlan(); await flush(); render(); window.scrollTo(0,0);
+  refreshPlan(); await flush(); render(); toTop();
   toast(`Cycle ${next.n} started: ${progOf(next).name}`);
 }
 
