@@ -2,8 +2,8 @@
    Triple-tap the "Fireground Hybrid" title to show live viewport and layout measurements, and to
    switch the shell sizing option (a / b / c, see app.css) without a new deploy. Read-only apart
    from the html[data-shell] attribute and the saved choice in localStorage. Sets no heights.      */
-const OPTIONS = ['a', 'b', 'c'];
-const DESCR = {a:'fixed top, height 100lvh', b:'fixed inset 0 + min-height 100lvh', c:'fixed top, height 100vh + bottom inset', none:'fixed inset 0 (browser tab default)'};
+const OPTIONS = [null, 'a', 'b', 'c'];   // null: plain pinned shell (the default)
+const DESCR = {a:'fixed top, height 100lvh', b:'fixed inset 0 + min-height 100lvh', c:'fixed top, height 100vh + bottom inset', none:'fixed inset 0 (default)'};
 const KEY = 'fh-shell';
 
 export function initDiag(){
@@ -31,6 +31,7 @@ window.scrollY     ${Math.round(scrollY)}
 #app-shell         ${r('#app-shell')}
 #scroller          ${r('#scroller')}
 nav                ${r('nav.tabs')}  <span class="${navOk ? 'good' : 'bad'}">${navOk ? '= screen.height' : '≠ screen.height'}</span>
+root overflow      ${getComputedStyle(html).overflowY} / body ${getComputedStyle(document.body).overflowY}
 safe-area top      ${cs.paddingTop}
 safe-area bottom   ${cs.paddingBottom}
 navigator.standalone ${String(navigator.standalone)}
@@ -45,12 +46,7 @@ shell option       ${opt}: ${DESCR[opt]}`;
     requestAnimationFrame(paint);
   };
   box.querySelector('#diag-cycle').addEventListener('click', ()=>{ const cur = html.getAttribute('data-shell'); setOpt(OPTIONS[(OPTIONS.indexOf(cur) + 1) % OPTIONS.length]); });
-  box.querySelector('#diag-auto').addEventListener('click', ()=>{
-    setOpt(null);
-    const standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
-    if(standalone) html.setAttribute('data-shell', 'a');
-    requestAnimationFrame(paint);
-  });
+  box.querySelector('#diag-auto').addEventListener('click', ()=>setOpt(null));
   box.querySelector('#diag-close').addEventListener('click', ()=>show(false));
   ['resize','scroll','orientationchange'].forEach(ev=>window.addEventListener(ev, paint, {passive:true}));
   if(window.visualViewport){ visualViewport.addEventListener('resize', paint); visualViewport.addEventListener('scroll', paint); }

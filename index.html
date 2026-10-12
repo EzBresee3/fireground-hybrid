@@ -18,13 +18,10 @@
 <link rel="preload" href="fonts/barlow-condensed-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/app.css">
 <script>
-/* Pick the shell sizing option before first paint (see app.css). A saved choice from the
-   diagnostic overlay wins; otherwise option a in the home-screen app and none in a browser tab. */
+/* Apply a shell sizing option saved in the diagnostic overlay before first paint (see app.css). Default: none. */
 (function(){
   var o = null; try{ o = localStorage.getItem('fh-shell'); }catch(e){}
-  var standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-  if(o !== 'a' && o !== 'b' && o !== 'c') o = standalone ? 'a' : null;
-  if(o) document.documentElement.setAttribute('data-shell', o);
+  if(o === 'a' || o === 'b' || o === 'c') document.documentElement.setAttribute('data-shell', o);
 })();
 </script>
 </head>

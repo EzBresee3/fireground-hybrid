@@ -171,7 +171,7 @@ input[type=password]{width:100%;border:1.5px solid var(--line);background:var(--
 .btn-sm{flex:none;border:1.5px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;font-size:14px;font-weight:600;cursor:pointer}
 .srow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
 .block h3+.srow{border-top:0}
-body.sheet-open{overflow:hidden}
+body.sheet-open #scroller{overflow:hidden}
 .sheet-wrap{position:fixed;inset:0;z-index:40}
 .sheet-wrap[hidden]{display:none}
 .sheet-backdrop{position:absolute;inset:0;background:rgba(10,14,16,.45)}
@@ -207,14 +207,18 @@ body.sheet-open{overflow:hidden}
    Safe-area insets are applied in exactly two places: .statusbar (top) and nav.tabs (bottom).
    The shell is pinned to the screen edges, so it never depends on what iOS reports for 100% or
    100dvh in standalone mode, and body's overflow clipping can't cut it short.                     */
-html,body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:none}
+/* No overflow on html or body: on iOS, overflow on the root applies to the viewport itself, and in
+   standalone mode that clipped everything at a line about 55 pt above the screen bottom (through
+   the nav labels), however tall the shell was. Nothing in the page flow is tall enough to scroll
+   (the shell is fixed), so the page can't scroll without it.                                    */
+html,body{height:100%;margin:0;padding:0;overscroll-behavior:none}
 /* Safety net: if the shell ever stops short of the screen edge, the page behind it is the nav's colour, so it reads as more nav, not a band. */
 html,body{background:var(--surface)}
 /* Sized by its four edges only: no height, margin or transform. Nothing in the JS sets heights. */
 #app-shell{position:fixed;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;background:var(--paper)}
-/* Shell sizing options, chosen by html[data-shell] (set before first paint by the inline script in
-   index.html; switchable live from the diagnostic overlay). In a browser tab no option is set and
-   the shell is simply pinned to the four edges.
+/* Shell sizing options for diagnosis, chosen by html[data-shell] (set before first paint by the
+   inline script in index.html from a choice saved in the diagnostic overlay). By default no option
+   is set and the shell is simply pinned to the four edges.
    a: height of the large viewport, no bottom   b: pinned edges plus a large-viewport floor
    c: 100vh plus the bottom inset, no bottom                                                       */
 html[data-shell="a"] #app-shell{bottom:auto;height:100vh;height:100lvh}
