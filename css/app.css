@@ -12,8 +12,6 @@
   --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
   --body:"Barlow","Helvetica Neue",Arial,sans-serif;
   box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -26,11 +24,11 @@
   --red:#E24B3C; --red-ink:#140706; --trimY:#D6D03A; --trimS:#8E979C; --hatch:#2B3337;
 }
 *,*::before,*::after{box-sizing:inherit}
-html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+html{height:100%;-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45}
 button,input,textarea{font:inherit;color:inherit}
 :focus-visible{outline:3px solid var(--red);outline-offset:2px}
-.wrap{max-width:640px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom,0px))}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 24px}
 header.top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px}
 .brand{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.01em}
 .sync{font-size:13px;color:var(--steel)}
@@ -99,9 +97,10 @@ td.num{font-family:var(--display);font-weight:600;font-size:18px}
 .bar-x{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;font-size:11px;color:var(--steel);text-align:center;margin-top:4px}
 .count{font-family:var(--display);font-weight:700;font-size:44px;line-height:1}
 /* nav */
-nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+/* Height comes from the buttons (padding + one line of text, about 56 pt) plus the home-indicator inset; the background runs to the screen edge. */
+nav.tabs{flex:none;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 nav.tabs .in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
-nav.tabs button{background:none;border:0;padding:14px 0 12px;font-family:var(--display);font-weight:600;font-size:18px;color:var(--steel);cursor:pointer;border-top:3px solid transparent}
+nav.tabs button{background:none;border:0;padding:14px 0 12px;line-height:1.45;font-family:var(--display);font-weight:600;font-size:18px;color:var(--steel);cursor:pointer;border-top:3px solid transparent}
 nav.tabs button[aria-current="page"]{color:var(--ink);border-top-color:var(--red)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-size:15px;max-width:90vw;z-index:9;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
@@ -112,9 +111,9 @@ nav.tabs button[aria-current="page"]{color:var(--ink);border-top-color:var(--red
 :root{--bar:#B8251B}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bar:#151A1C}}
 :root[data-theme="dark"]{--bar:#151A1C}
-.statusbar{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--bar);z-index:20}
+.statusbar{flex:none;height:env(safe-area-inset-top,0px);background:var(--bar)}
 /* rest timer */
-#timer-slot{position:sticky;top:env(safe-area-inset-top,0px);z-index:4;margin:12px 0}
+#timer-slot{position:sticky;top:0;z-index:4;margin:12px 0}
 #timer-slot:empty{display:none}
 .timer{background:var(--surface);border:2px solid var(--ink);border-radius:12px;padding:8px 10px;transition:background-color .2s}
 .timer .row{display:flex;align-items:center;gap:8px}
@@ -204,15 +203,13 @@ body.sheet-open{overflow:hidden}
 
 /* ---------------- App shell ----------------
    The page itself never scrolls. A flex column holds the status-bar strip, one scroll container
-   and the bottom nav, so iOS standalone mode has nothing fixed-position to drag around.          */
-:root{padding-top:0;padding-bottom:0}
+   and the bottom nav; the nav is an ordinary flex item, not position: fixed.
+   Safe-area insets are applied in exactly two places: .statusbar (top) and nav.tabs (bottom).
+   The shell is pinned to the screen edges, so it never depends on what iOS reports for 100% or
+   100dvh in standalone mode, and body's overflow clipping can't cut it short.                     */
 html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
 body{min-height:0}
-#app-shell{display:flex;flex-direction:column;height:100vh;height:-webkit-fill-available;height:100dvh;background:var(--paper)}
-.statusbar{position:static;flex:none}
+#app-shell{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--paper)}
 #scroller{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-.wrap{padding-bottom:24px}
-nav.tabs{position:static;flex:none}
-#timer-slot{top:0}
 /* Keyboard open: hide the nav so it can't ride up on top of the keyboard. */
 body.kb nav.tabs{display:none}
