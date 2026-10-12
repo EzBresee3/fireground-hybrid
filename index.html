@@ -18,10 +18,16 @@
 <link rel="preload" href="fonts/barlow-condensed-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/app.css">
 <script>
-/* Apply a shell sizing option saved in the diagnostic overlay before first paint (see app.css). Default: none. */
+/* Apply a shell sizing option saved in the diagnostic overlay before first paint (see app.css).
+   Default: none (shell pinned to the screen edges). Choices saved before the nav-sizing release are
+   cleared once, so everyone starts from the shell whose bottom is the screen bottom.            */
 (function(){
-  var o = null; try{ o = localStorage.getItem('fh-shell'); }catch(e){}
-  if(o === 'a' || o === 'b' || o === 'c') document.documentElement.setAttribute('data-shell', o);
+  var o = null;
+  try{
+    if(localStorage.getItem('fh-shell-reset') !== '6'){ localStorage.removeItem('fh-shell'); localStorage.setItem('fh-shell-reset', '6'); }
+    o = localStorage.getItem('fh-shell');
+  }catch(e){}
+  if(o === 'a' || o === 'b') document.documentElement.setAttribute('data-shell', o);
 })();
 </script>
 </head>

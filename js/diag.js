@@ -2,9 +2,10 @@
    Triple-tap the "Fireground Hybrid" title to show live viewport and layout measurements, and to
    switch the shell sizing option (a / b / c, see app.css) without a new deploy. Read-only apart
    from the html[data-shell] attribute and the saved choice in localStorage. Sets no heights.      */
-const OPTIONS = [null, 'a', 'b', 'c'];   // null: plain pinned shell (the default)
-const DESCR = {a:'fixed top, height 100lvh', b:'fixed inset 0 + min-height 100lvh', c:'fixed top, height 100vh + bottom inset', none:'fixed inset 0 (default)'};
+const OPTIONS = [null, 'a', 'b'];   // null: plain pinned shell (the default)
+const DESCR = {a:'fixed top, height 100lvh', b:'fixed inset 0 + min-height 100lvh', none:'fixed inset 0 (default)'};
 const KEY = 'fh-shell';
+import { APP_VERSION } from './version.js';
 
 export function initDiag(){
   const html = document.documentElement;
@@ -31,12 +32,14 @@ window.scrollY     ${Math.round(scrollY)}
 #app-shell         ${r('#app-shell')}
 #scroller          ${r('#scroller')}
 nav                ${r('nav.tabs')}  <span class="${navOk ? 'good' : 'bad'}">${navOk ? '= screen.height' : '≠ screen.height'}</span>
+nav height         ${Math.round(nav.height)} (tabs ${Math.round(nav.height - parseFloat(getComputedStyle(document.querySelector('nav.tabs')).paddingBottom))} + padding ${getComputedStyle(document.querySelector('nav.tabs')).paddingBottom})
 root overflow      ${getComputedStyle(html).overflowY} / body ${getComputedStyle(document.body).overflowY}
 safe-area top      ${cs.paddingTop}
 safe-area bottom   ${cs.paddingBottom}
 navigator.standalone ${String(navigator.standalone)}
 display-mode       ${mode()}
-shell option       ${opt}: ${DESCR[opt]}`;
+shell option       ${opt}: ${DESCR[opt] || opt}
+app version        ${APP_VERSION}`;
   }
   let timer = null;
   const show = on => { box.hidden = !on; clearInterval(timer); if(on){ paint(); timer = setInterval(paint, 300); } };

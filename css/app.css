@@ -98,9 +98,11 @@ td.num{font-family:var(--display);font-weight:600;font-size:18px}
 .count{font-family:var(--display);font-weight:700;font-size:44px;line-height:1}
 /* nav */
 /* Height comes from the buttons (padding + one line of text, about 56 pt) plus the home-indicator inset; the background runs to the screen edge. */
-nav.tabs{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+/* Like a native iOS tab bar: a 49 pt tab area (1 px border + 48 px buttons), then just enough
+   bottom padding to clear the home indicator. The only place the bottom inset touches the layout. */
+nav.tabs{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);padding-bottom:max(6px, calc(env(safe-area-inset-bottom,0px) - 12px))}
 nav.tabs .in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
-nav.tabs button{background:none;border:0;padding:14px 0 12px;line-height:1.45;font-family:var(--display);font-weight:600;font-size:18px;color:var(--steel);cursor:pointer;border-top:3px solid transparent}
+nav.tabs button{display:flex;align-items:center;justify-content:center;min-height:48px;background:none;border:0;padding:10px 0 6px;line-height:1.1;font-family:var(--display);font-weight:600;font-size:18px;color:var(--steel);cursor:pointer;border-top:3px solid transparent}
 nav.tabs button[aria-current="page"]{color:var(--ink);border-top-color:var(--red)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-size:15px;max-width:90vw;z-index:9;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
@@ -219,11 +221,9 @@ html,body{background:var(--surface)}
 /* Shell sizing options for diagnosis, chosen by html[data-shell] (set before first paint by the
    inline script in index.html from a choice saved in the diagnostic overlay). By default no option
    is set and the shell is simply pinned to the four edges.
-   a: height of the large viewport, no bottom   b: pinned edges plus a large-viewport floor
-   c: 100vh plus the bottom inset, no bottom                                                       */
+   a: height of the large viewport, no bottom   b: pinned edges plus a large-viewport floor     */
 html[data-shell="a"] #app-shell{bottom:auto;height:100vh;height:100lvh}
 html[data-shell="b"] #app-shell{min-height:100vh;min-height:100lvh}
-html[data-shell="c"] #app-shell{bottom:auto;height:calc(100vh + env(safe-area-inset-bottom,0px))}
 #scroller{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 /* Keyboard open: hide the nav so it can't ride up on top of the keyboard. */
 body.kb nav.tabs{display:none}

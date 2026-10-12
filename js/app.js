@@ -4,6 +4,7 @@ import { loadAll, set, setMany, requestPersist, buildExport, validateImport } fr
 import { liftTip, sessionTip, findPrev, parseReps } from './coach.js';
 import { initSync, markDirty, pushNow, connect, useRemote, keepLocal, disconnect, status as syncStatus } from './sync.js';
 import { initDiag } from './diag.js';
+import { APP_VERSION } from './version.js';
 
 /* ---------------- State and storage ---------------- */
 const state = {logs:{}, settings:{version:'gym', mode:'bike', cycles:[{...DEFAULT_CYCLE}]}, meta:{}, tab:'today', openId:null, planCycle:null, picker:false, pick:null, pickType:null, screen:null};
@@ -527,6 +528,7 @@ function settingsView(){
   h += mine.length ? mine.map(([p,n])=>row(esc(n), esc(PATTERNS[p]||p), `data-del-custom="${esc(p+'|'+n)}"`, `Delete ${esc(n)}`)).join('')
     : `<p class="small muted" style="margin:4px 0 0">None yet. Use Add your own in the Swap sheet.</p>`;
   h += `</div><p class="small muted">Just-today swaps live on the session itself: open it and tap Undo.</p>`;
+  h += `<p class="small muted" style="margin-top:24px">Fireground Hybrid · version ${APP_VERSION}</p>`;
   return h;
 }
 
