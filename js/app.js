@@ -3,6 +3,7 @@ import { PATTERNS, CARDIO, CARDIO_DAY, alternatives, patternOf, tagOf, cardioAs,
 import { loadAll, set, setMany, requestPersist, buildExport, validateImport } from './storage.js';
 import { liftTip, sessionTip, findPrev, parseReps } from './coach.js';
 import { initSync, markDirty, pushNow, connect, useRemote, keepLocal, disconnect, status as syncStatus } from './sync.js';
+import { initDiag } from './diag.js';
 
 /* ---------------- State and storage ---------------- */
 const state = {logs:{}, settings:{version:'gym', mode:'bike', cycles:[{...DEFAULT_CYCLE}]}, meta:{}, tab:'today', openId:null, planCycle:null, picker:false, pick:null, pickType:null, screen:null};
@@ -810,6 +811,8 @@ document.addEventListener('visibilitychange', async ()=>{
   if(syncStatus().pending) pushNow({keepalive:true});
 });
 window.addEventListener('pagehide', ()=>{ if(lt) flush(); });
+
+initDiag();
 
 (async function boot(){
   try{

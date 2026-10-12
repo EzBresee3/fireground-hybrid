@@ -98,7 +98,7 @@ td.num{font-family:var(--display);font-weight:600;font-size:18px}
 .count{font-family:var(--display);font-weight:700;font-size:44px;line-height:1}
 /* nav */
 /* Height comes from the buttons (padding + one line of text, about 56 pt) plus the home-indicator inset; the background runs to the screen edge. */
-nav.tabs{flex:none;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.tabs{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 nav.tabs .in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr)}
 nav.tabs button{background:none;border:0;padding:14px 0 12px;line-height:1.45;font-family:var(--display);font-weight:600;font-size:18px;color:var(--steel);cursor:pointer;border-top:3px solid transparent}
 nav.tabs button[aria-current="page"]{color:var(--ink);border-top-color:var(--red)}
@@ -111,7 +111,7 @@ nav.tabs button[aria-current="page"]{color:var(--ink);border-top-color:var(--red
 :root{--bar:#B8251B}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bar:#151A1C}}
 :root[data-theme="dark"]{--bar:#151A1C}
-.statusbar{flex:none;height:env(safe-area-inset-top,0px);background:var(--bar)}
+.statusbar{flex:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bar)}
 /* rest timer */
 #timer-slot{position:sticky;top:0;z-index:4;margin:12px 0}
 #timer-slot:empty{display:none}
@@ -212,10 +212,25 @@ html,body{height:100%;margin:0;padding:0;overflow:hidden;overscroll-behavior:non
 html,body{background:var(--surface)}
 /* Sized by its four edges only: no height, margin or transform. Nothing in the JS sets heights. */
 #app-shell{position:fixed;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;background:var(--paper)}
-/* Home-screen app only: iOS can measure fixed elements against an area shorter than the screen
-   (about the status-bar inset), leaving a band under the nav. The large viewport is the whole
-   screen in standalone mode, so this floor reaches the bottom edge and is a no-op otherwise.     */
-@media (display-mode: standalone){ #app-shell{min-height:100vh;min-height:100lvh} }
-#scroller{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+/* Shell sizing options, chosen by html[data-shell] (set before first paint by the inline script in
+   index.html; switchable live from the diagnostic overlay). In a browser tab no option is set and
+   the shell is simply pinned to the four edges.
+   a: height of the large viewport, no bottom   b: pinned edges plus a large-viewport floor
+   c: 100vh plus the bottom inset, no bottom                                                       */
+html[data-shell="a"] #app-shell{bottom:auto;height:100vh;height:100lvh}
+html[data-shell="b"] #app-shell{min-height:100vh;min-height:100lvh}
+html[data-shell="c"] #app-shell{bottom:auto;height:calc(100vh + env(safe-area-inset-bottom,0px))}
+#scroller{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 /* Keyboard open: hide the nav so it can't ride up on top of the keyboard. */
 body.kb nav.tabs{display:none}
+
+/* Diagnostic overlay (triple-tap the title) */
+.brand{-webkit-user-select:none;user-select:none;touch-action:manipulation;cursor:default}
+.diag{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:60;background:rgba(10,14,16,.92);color:#E5E9EA;border-radius:10px;padding:10px 12px;font:12px/1.4 ui-monospace,Menlo,monospace;max-width:420px}
+.diag[hidden]{display:none}
+.diag pre{margin:0 0 8px;white-space:pre-wrap;font:inherit}
+.diag .row{display:flex;gap:8px}
+.diag button{flex:1;border:0;border-radius:8px;padding:9px 6px;font:600 14px/1 var(--body);background:#E3DC3C;color:#1E2428;cursor:pointer}
+.diag button.ghost{background:#333D41;color:#E5E9EA}
+.diag .bad{color:#ff8a80}.diag .good{color:#b9f6ca}
+#env-probe{position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}

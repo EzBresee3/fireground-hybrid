@@ -1,12 +1,12 @@
 /* Fireground Hybrid service worker: cache-first app shell, versioned cache. */
 const VERSION = 'dev'; // the deploy workflow stamps the commit SHA here, so every deploy offers an update
-const REV = 3;          // bump by hand to force a fresh cache even without a new deploy (3: bottom-nav gap fix)
+const REV = 4;          // bump by hand to force a fresh cache even without a new deploy (4: shell options + diagnostics)
 const CACHE = 'fireground-' + VERSION + '-r' + REV;
 const SHELL = [
   'index.html',
   'manifest.webmanifest',
   'css/app.css',
-  'js/app.js', 'js/program.js', 'js/storage.js', 'js/sync.js', 'js/coach.js', 'js/exercises.js',
+  'js/app.js', 'js/program.js', 'js/storage.js', 'js/sync.js', 'js/coach.js', 'js/exercises.js', 'js/diag.js',
   'fonts/barlow-400.woff2', 'fonts/barlow-500.woff2', 'fonts/barlow-600.woff2',
   'fonts/barlow-condensed-500.woff2', 'fonts/barlow-condensed-600.woff2', 'fonts/barlow-condensed-700.woff2',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'
