@@ -1,6 +1,7 @@
 /* Fireground Hybrid service worker: cache-first app shell, versioned cache. */
 const VERSION = 'dev'; // the deploy workflow stamps the commit SHA here, so every deploy offers an update
-const CACHE = 'fireground-' + VERSION;
+const REV = 3;          // bump by hand to force a fresh cache even without a new deploy (3: bottom-nav gap fix)
+const CACHE = 'fireground-' + VERSION + '-r' + REV;
 const SHELL = [
   'index.html',
   'manifest.webmanifest',
